@@ -1,0 +1,53 @@
+@import 'tailwindcss';
+
+@layer base {
+  body {
+    font-family: 'Outfit', 'Inter', sans-serif;
+    background-color: #f8fafc;
+    color: #0f172a;
+  }
+
+  h1, h2, h3, h4, h5, h6 {
+    font-family: 'Outfit', sans-serif;
+  }
+}
+
+/* Custom Sketchy & Modern Pop UI Utilities */
+.shadow-sketch {
+  box-shadow: 4px 4px 0px 0px rgba(15, 23, 42, 0.9);
+}
+
+.shadow-sketch-sm {
+  box-shadow: 2px 2px 0px 0px rgba(15, 23, 42, 0.8);
+}
+
+.shadow-sketch-blue {
+  box-shadow: 4px 4px 0px 0px #2563eb;
+}
+
+.shadow-sketch-green {
+  box-shadow: 4px 4px 0px 0px #16a34a;
+}
+
+.shadow-sketch-orange {
+  box-shadow: 4px 4px 0px 0px #f97316;
+}
+
+.border-sketch {
+  border: 2px solid #0f172a;
+}
+
+.wavy-underline {
+  text-decoration: underline;
+  text-decoration-style: wavy;
+  text-decoration-color: #2563eb;
+}
+
+@keyframes pulse-subtle {
+  0%, 100% { opacity: 1; transform: scale(1); }
+  50% { opacity: 0.85; transform: scale(1.03); }
+}
+
+.animate-pulse-subtle {
+  animation: pulse-subtle 3s ease-in-out infinite;
+}

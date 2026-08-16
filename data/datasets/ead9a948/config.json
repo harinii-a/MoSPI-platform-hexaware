@@ -1,0 +1,43 @@
+{
+  "record_id_col": "record_id",
+  "household_id_col": null,
+  "person_id_col": null,
+  "enumerator_col": "enumerator_id",
+  "supervisor_col": null,
+  "cluster_col": null,
+  "state_col": "state_name",
+  "district_col": "district_code",
+  "geo_cols": [
+    "state_name",
+    "district_code"
+  ],
+  "time_col": null,
+  "measure_cols": [
+    "respondent_age",
+    "weekly_hours",
+    "monthly_income"
+  ],
+  "numeric_cols": [
+    "record_id",
+    "respondent_age",
+    "weekly_hours",
+    "monthly_income"
+  ],
+  "categorical_cols": [
+    "state_name",
+    "district_code",
+    "enumerator_id",
+    "emp_status"
+  ],
+  "identifier_cols": [
+    "record_id"
+  ],
+  "weight_col": null,
+  "historical_dataset_id": null,
+  "risk_weights": {
+    "rule": 35,
+    "ml": 35,
+    "enumerator": 15,
+    "cluster": 15
+  }
+}

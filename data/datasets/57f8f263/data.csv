@@ -1,0 +1,13 @@
+record_id,state_name,district_code,enumerator_id,respondent_age,emp_status,weekly_hours,monthly_income
+101,Tamil Nadu,Erode,E01,28,Employed,40,25000
+102,Tamil Nadu,Erode,E01,35,Employed,48,32000
+103,Tamil Nadu,Salem,E02,14,Employed,45,8000
+104,Tamil Nadu,Salem,E02,42,Unemployed,0,0
+105,Tamil Nadu,Coimbatore,E03,50,Employed,120,120000
+106,Tamil Nadu,Coimbatore,E03,19,Student,0,0
+107,Kerala,Kochi,E04,31,Employed,38,28000
+108,Kerala,Kochi,E04,62,Retired,0,15000
+109,Kerala,Kollam,E05,45,Employed,42,30000
+110,Kerala,Kollam,E05,29,Employed,50,31000
+111,Kerala,Kannur,E01,38,Employed,40,29000
+112,Kerala,Kannur,E01,55,Employed,44,35000

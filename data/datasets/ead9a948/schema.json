@@ -1,0 +1,243 @@
+{
+  "total_columns": 8,
+  "total_records": 12,
+  "columns": [
+    {
+      "name": "record_id",
+      "inferred_type": "numeric",
+      "nullable": false,
+      "unique_count": 12,
+      "missing_count": 0,
+      "missing_percentage": 0.0,
+      "cardinality": 12,
+      "sample_values": [
+        "101",
+        "102",
+        "103",
+        "104",
+        "105"
+      ],
+      "total_count": 12,
+      "min": 101.0,
+      "max": 112.0,
+      "mean": 106.5,
+      "median": 106.5,
+      "std": 3.61,
+      "semantic_role": "RECORD_ID",
+      "confidence": 1.0
+    },
+    {
+      "name": "state_name",
+      "inferred_type": "categorical",
+      "nullable": false,
+      "unique_count": 2,
+      "missing_count": 0,
+      "missing_percentage": 0.0,
+      "cardinality": 2,
+      "sample_values": [
+        "Tamil Nadu",
+        "Tamil Nadu",
+        "Tamil Nadu",
+        "Tamil Nadu",
+        "Tamil Nadu"
+      ],
+      "total_count": 12,
+      "semantic_role": "STATE",
+      "confidence": 0.85
+    },
+    {
+      "name": "district_code",
+      "inferred_type": "categorical",
+      "nullable": false,
+      "unique_count": 6,
+      "missing_count": 0,
+      "missing_percentage": 0.0,
+      "cardinality": 6,
+      "sample_values": [
+        "Erode",
+        "Erode",
+        "Salem",
+        "Salem",
+        "Coimbatore"
+      ],
+      "total_count": 12,
+      "semantic_role": "DISTRICT",
+      "confidence": 0.85
+    },
+    {
+      "name": "enumerator_id",
+      "inferred_type": "categorical",
+      "nullable": false,
+      "unique_count": 5,
+      "missing_count": 0,
+      "missing_percentage": 0.0,
+      "cardinality": 5,
+      "sample_values": [
+        "E01",
+        "E01",
+        "E02",
+        "E02",
+        "E03"
+      ],
+      "total_count": 12,
+      "semantic_role": "ENUMERATOR_ID",
+      "confidence": 0.85
+    },
+    {
+      "name": "respondent_age",
+      "inferred_type": "numeric",
+      "nullable": false,
+      "unique_count": 12,
+      "missing_count": 0,
+      "missing_percentage": 0.0,
+      "cardinality": 12,
+      "sample_values": [
+        "28",
+        "35",
+        "14",
+        "42",
+        "50"
+      ],
+      "total_count": 12,
+      "min": 14.0,
+      "max": 62.0,
+      "mean": 37.33,
+      "median": 36.5,
+      "std": 14.28,
+      "semantic_role": "AGE",
+      "confidence": 0.495
+    },
+    {
+      "name": "emp_status",
+      "inferred_type": "categorical",
+      "nullable": false,
+      "unique_count": 4,
+      "missing_count": 0,
+      "missing_percentage": 0.0,
+      "cardinality": 4,
+      "sample_values": [
+        "Employed",
+        "Employed",
+        "Employed",
+        "Unemployed",
+        "Employed"
+      ],
+      "total_count": 12,
+      "semantic_role": "EMPLOYMENT",
+      "confidence": 0.85
+    },
+    {
+      "name": "weekly_hours",
+      "inferred_type": "numeric",
+      "nullable": false,
+      "unique_count": 9,
+      "missing_count": 0,
+      "missing_percentage": 0.0,
+      "cardinality": 9,
+      "sample_values": [
+        "40",
+        "48",
+        "45",
+        "0",
+        "120"
+      ],
+      "total_count": 12,
+      "min": 0.0,
+      "max": 120.0,
+      "mean": 38.92,
+      "median": 41.0,
+      "std": 32.19,
+      "semantic_role": "HOURS_WORKED",
+      "confidence": 0.85
+    },
+    {
+      "name": "monthly_income",
+      "inferred_type": "numeric",
+      "nullable": false,
+      "unique_count": 11,
+      "missing_count": 0,
+      "missing_percentage": 0.0,
+      "cardinality": 11,
+      "sample_values": [
+        "25000",
+        "32000",
+        "8000",
+        "0",
+        "120000"
+      ],
+      "total_count": 12,
+      "min": 0.0,
+      "max": 120000.0,
+      "mean": 29416.67,
+      "median": 28500.0,
+      "std": 31137.4,
+      "semantic_role": "INCOME",
+      "confidence": 0.85
+    }
+  ],
+  "detected_roles": {
+    "RECORD_ID": {
+      "column": "record_id",
+      "confidence": 1.0
+    },
+    "STATE": {
+      "column": "state_name",
+      "confidence": 0.85
+    },
+    "DISTRICT": {
+      "column": "district_code",
+      "confidence": 0.85
+    },
+    "ENUMERATOR_ID": {
+      "column": "enumerator_id",
+      "confidence": 0.85
+    },
+    "AGE": {
+      "column": "respondent_age",
+      "confidence": 0.495
+    },
+    "EMPLOYMENT": {
+      "column": "emp_status",
+      "confidence": 0.85
+    },
+    "HOURS_WORKED": {
+      "column": "weekly_hours",
+      "confidence": 0.85
+    },
+    "INCOME": {
+      "column": "monthly_income",
+      "confidence": 0.85
+    }
+  },
+  "identifiers": [
+    "record_id"
+  ],
+  "dimensions": [
+    "state_name",
+    "district_code",
+    "enumerator_id",
+    "emp_status"
+  ],
+  "measures": [
+    "respondent_age",
+    "weekly_hours",
+    "monthly_income"
+  ],
+  "temporal": [],
+  "geographic": [
+    "state_name",
+    "district_code"
+  ],
+  "numeric_columns": [
+    "record_id",
+    "respondent_age",
+    "weekly_hours",
+    "monthly_income"
+  ],
+  "categorical_columns": [
+    "state_name",
+    "district_code",
+    "enumerator_id",
+    "emp_status"
+  ]
+}

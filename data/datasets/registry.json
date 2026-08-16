@@ -1,0 +1,45 @@
+{
+  "datasets": {
+    "8083ec2b": {
+      "dataset_id": "8083ec2b",
+      "filename": "chhv12025.csv",
+      "format": "csv",
+      "total_records": 270472,
+      "total_columns": 48,
+      "uploaded_at": "2026-08-16T11:13:24.455773",
+      "status": "PROFILED",
+      "is_historical": false
+    },
+    "0889e59a": {
+      "dataset_id": "0889e59a",
+      "filename": "generic_survey_2026.csv",
+      "format": "csv",
+      "total_records": 12,
+      "total_columns": 8,
+      "uploaded_at": "2026-08-16T11:51:34.489135",
+      "status": "PROFILED",
+      "is_historical": false
+    },
+    "7bc2af94": {
+      "dataset_id": "7bc2af94",
+      "filename": "generic_survey_2026.csv",
+      "format": "csv",
+      "total_records": 12,
+      "total_columns": 8,
+      "uploaded_at": "2026-08-16T11:55:21.190344",
+      "status": "PROFILED",
+      "is_historical": false
+    },
+    "5da2f6e1": {
+      "dataset_id": "5da2f6e1",
+      "filename": "chhv12025.csv",
+      "format": "csv",
+      "total_records": 270472,
+      "total_columns": 48,
+      "uploaded_at": "2026-08-16T12:55:50.121070",
+      "status": "PROFILED",
+      "is_historical": false
+    }
+  },
+  "active_dataset_id": "5da2f6e1"
+}
