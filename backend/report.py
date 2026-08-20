@@ -363,13 +363,23 @@ def create_pdf(path: str, summary: dict, dataset_meta: dict = None, analytics: d
             Paragraph("<b>Avg Household Size</b>", st_th),
         ]]
         for s in sector_comp:
+            avg_val = s.get('avg_hh_size')
+            try:
+                if avg_val is not None and not pd.isna(avg_val):
+                    avg_num = float(avg_val)
+                    avg_str = f"{avg_num:.2f} persons"
+                else:
+                    avg_str = "N/A"
+            except (ValueError, TypeError):
+                avg_str = f"{avg_val} persons" if avg_val else "N/A"
+
             sec_rows.append([
                 Paragraph(f"<b>{s.get('sector_name', 'Sector')}</b>", st_td_bold),
                 Paragraph(f"{s.get('records', 0):,}", st_td),
                 Paragraph(f"{s.get('percentage', 0):.2f}%", st_td),
                 Paragraph(f"₹{s.get('avg_expenditure', 0):,.2f}" if 'avg_expenditure' in s else "N/A", st_td),
                 Paragraph(f"₹{s.get('median_income', 0):,.2f}" if 'median_income' in s else "N/A", st_td),
-                Paragraph(f"{s.get('avg_hh_size', 0):.2f} persons" if 'avg_hh_size' in s else "N/A", st_td),
+                Paragraph(avg_str, st_td),
             ])
         sec_table = Table(sec_rows, colWidths=[110, 80, 80, 95, 85, 73])
         sec_table.setStyle(TableStyle([
@@ -400,12 +410,22 @@ def create_pdf(path: str, summary: dict, dataset_meta: dict = None, analytics: d
         ]]
         for row in state_analytics[:6]:
             state_label = row.get("state_id", "State")
+            avg_val = row.get('avg_hh_size')
+            try:
+                if avg_val is not None and not pd.isna(avg_val):
+                    avg_num = float(avg_val)
+                    avg_str = f"{avg_num:.2f} persons"
+                else:
+                    avg_str = "N/A"
+            except (ValueError, TypeError):
+                avg_str = f"{avg_val} persons" if avg_val else "N/A"
+
             st_rows.append([
                 Paragraph(f"<b>State #{state_label}</b>", st_td_bold),
                 Paragraph(f"{row.get('records', 0):,}", st_td),
                 Paragraph(f"{row.get('share_pct', 0):.2f}%", st_td),
                 Paragraph(f"₹{row.get('avg_expenditure', 0):,.2f}" if 'avg_expenditure' in row else "N/A", st_td),
-                Paragraph(f"{row.get('avg_hh_size', 0):.2f} persons" if 'avg_hh_size' in row else "N/A", st_td),
+                Paragraph(avg_str, st_td),
             ])
         st_table = Table(st_rows, colWidths=[123, 90, 90, 110, 110])
         st_table.setStyle(TableStyle([
@@ -426,14 +446,24 @@ def create_pdf(path: str, summary: dict, dataset_meta: dict = None, analytics: d
     # 6. MULTI-FACTOR AI RISK ENGINE & TOP FLAGGED OBSERVATIONS
     # ═════════════════════════════════════════════════════════════════
     story.append(Paragraph("5. AI Quality Diagnostics & Priority Flagged Records", st_section_head))
+
+    records = summary.get("records", [])
+    flagged_records = [r for r in records if r.get("risk_level") == "High" or r.get("has_rule_violation") or r.get("has_ml_anomaly")]
+
+    total_rec_count = len(records)
+    flagged_rec_count = len(flagged_records)
+    flagged_pct = round((flagged_rec_count / total_rec_count * 100), 2) if total_rec_count > 0 else 0.0
+
+    story.append(Paragraph(
+        f"<b>{flagged_rec_count} of {total_rec_count} records flagged ({flagged_pct:.2f}%)</b>",
+        st_body_bold
+    ))
+    story.append(Spacer(1, 4))
     story.append(Paragraph(
         "Records flagged below combine deterministic business rules (35%), Isolation Forest unsupervised ML anomalies (35%), enumerator skew (15%), and spatial cluster variance (15%):",
         st_body
     ))
     story.append(Spacer(1, 4))
-
-    records = summary.get("records", [])
-    flagged_records = [r for r in records if r.get("risk_level") == "High" or r.get("has_rule_violation") or r.get("has_ml_anomaly")]
 
     if flagged_records:
         flag_rows = [[
@@ -442,6 +472,7 @@ def create_pdf(path: str, summary: dict, dataset_meta: dict = None, analytics: d
             Paragraph("<b>Level</b>", st_th),
             Paragraph("<b>Rule Violation</b>", st_th),
             Paragraph("<b>ML Anomaly</b>", st_th),
+            Paragraph("<b>Review Status</b>", st_th),
             Paragraph("<b>Primary Deviation Detail</b>", st_th),
         ]]
         for rec in flagged_records[:6]:
@@ -449,6 +480,14 @@ def create_pdf(path: str, summary: dict, dataset_meta: dict = None, analytics: d
             risk_level = rec.get("risk_level", "Low")
             rule_badge = Paragraph("VIOLATION", st_badge_danger) if rec.get("has_rule_violation") else Paragraph("PASS", st_badge_success)
             ml_badge = Paragraph("OUTLIER", st_badge_warning) if rec.get("has_ml_anomaly") else Paragraph("NORMAL", st_badge_success)
+
+            status = rec.get("review_status", "NEW")
+            if status == "APPROVED":
+                status_badge = Paragraph("APPROVED", st_badge_success)
+            elif status in ("REJECTED", "ESCALATED"):
+                status_badge = Paragraph(status, st_badge_danger)
+            else:
+                status_badge = Paragraph("NEW", st_badge_warning)
 
             desc = "Multi-feature outlier & range threshold exceeded" if rec.get("has_rule_violation") and rec.get("has_ml_anomaly") else ("Deterministic boundary check trigger" if rec.get("has_rule_violation") else "Unsupervised multidimensional anomaly")
 
@@ -458,9 +497,10 @@ def create_pdf(path: str, summary: dict, dataset_meta: dict = None, analytics: d
                 Paragraph(risk_level, st_badge_danger if risk_level == "High" else st_badge_warning),
                 rule_badge,
                 ml_badge,
+                status_badge,
                 Paragraph(desc, st_td),
             ])
-        flag_table = Table(flag_rows, colWidths=[55, 60, 50, 70, 68, 220])
+        flag_table = Table(flag_rows, colWidths=[50, 55, 45, 60, 60, 65, 188])
         flag_table.setStyle(TableStyle([
             ('BACKGROUND', (0, 0), (-1, 0), colors.HexColor("#991b1b")), # Crimson Red
             ('VALIGN', (0, 0), (-1, -1), 'MIDDLE'),
@@ -478,9 +518,10 @@ def create_pdf(path: str, summary: dict, dataset_meta: dict = None, analytics: d
     story.append(Spacer(1, 8))
 
     # ═════════════════════════════════════════════════════════════════
-    # 7. SUPERVISORY RECOMMENDATIONS & COMPLIANCE ACTIONS
+    # 7. SUPERVISORY RECOMMENDATIONS & COMPLIANCE ACTIONS & CERTIFICATION
     # ═════════════════════════════════════════════════════════════════
-    story.append(Paragraph("6. Supervisory Recommendations & Compliance Directives", st_section_head))
+    sec_6_elements = []
+    sec_6_elements.append(Paragraph("6. Supervisory Recommendations & Compliance Directives", st_section_head))
 
     recs = []
     if high_risk_count > 0:
@@ -493,18 +534,19 @@ def create_pdf(path: str, summary: dict, dataset_meta: dict = None, analytics: d
         recs.append("<b>Optimal Data Quality:</b> Dataset satisfies all deterministic integrity rules and statistical distribution boundaries. Microdata is approved for econometric calibration.")
 
     for r in recs:
-        story.append(Paragraph(f"• {r}", st_body))
-        story.append(Spacer(1, 3))
+        sec_6_elements.append(Paragraph(f"• {r}", st_body))
+        sec_6_elements.append(Spacer(1, 3))
 
-    story.append(Spacer(1, 10))
+    sec_6_elements.append(Spacer(1, 10))
 
     # ═════════════════════════════════════════════════════════════════
     # 8. OFFICIAL CERTIFICATION & AUDIT SIGN-OFF BLOCK
     # ═════════════════════════════════════════════════════════════════
+    cert_time = datetime.utcnow().strftime("%d-%b-%Y %H:%M UTC")
     sign_off_data = [
         [
-            Paragraph("<b>CERTIFIED BY DATA SUPERVISOR</b><br/><br/>________________________________________<br/><b>Dr. Rajesh Kumar</b><br/>Lead Statistical Quality Officer<br/>Survey Validation Division, MoSPI", st_td),
-            Paragraph("<b>ENDORSED BY DIRECTOR / HEAD OF OPERATIONS</b><br/><br/>________________________________________<br/><b>Director General (Surveys)</b><br/>National Statistical Office (NSO)<br/>Government of India", st_td),
+            Paragraph(f"<b>CERTIFIED BY DATA SUPERVISOR</b><br/><br/>________________________________________<br/><b>Dr. Rajesh Kumar</b><br/>Lead Statistical Quality Officer<br/>Survey Validation Division, MoSPI<br/>Date of Certification: {cert_time}", st_td),
+            Paragraph(f"<b>ENDORSED BY DIRECTOR / HEAD OF OPERATIONS</b><br/><br/>________________________________________<br/><b>Director General (Surveys)</b><br/>National Statistical Office (NSO)<br/>Government of India<br/>Date of Endorsement: {cert_time}", st_td),
         ]
     ]
     sign_table = Table(sign_off_data, colWidths=[260, 263])
@@ -517,7 +559,8 @@ def create_pdf(path: str, summary: dict, dataset_meta: dict = None, analytics: d
         ('LEFTPADDING', (0, 0), (-1, -1), 12),
         ('RIGHTPADDING', (0, 0), (-1, -1), 12),
     ]))
-    story.append(KeepTogether([sign_table]))
+    sec_6_elements.append(sign_table)
+    story.append(KeepTogether(sec_6_elements))
 
     # Build document with NumberedCanvas
     doc.build(story, canvasmaker=NumberedCanvas)

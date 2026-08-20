@@ -12,6 +12,30 @@ export default function DatasetsPage({ datasets, activeDatasetId, onSetActive, o
   const fileInputRef = useRef(null);
   const histInputRef = useRef(null);
 
+  const [editingDatasetId, setEditingDatasetId] = useState(null);
+  const [editDescriptionVal, setEditDescriptionVal] = useState('');
+
+  const handleStartEdit = (id, currentDesc) => {
+    setEditingDatasetId(id);
+    setEditDescriptionVal(currentDesc || '');
+  };
+
+  const handleCancelEdit = () => {
+    setEditingDatasetId(null);
+    setEditDescriptionVal('');
+  };
+
+  const handleSaveEdit = async (id) => {
+    try {
+      await datasetApi.updateMetadata(id, { description: editDescriptionVal.trim() });
+      setEditingDatasetId(null);
+      setEditDescriptionVal('');
+      onRefresh();
+    } catch (err) {
+      console.error('Failed to update description:', err);
+    }
+  };
+
   const handleSetDataset = (id) => {
     setSelectedDatasetId(id);
     onSetActive(id);
@@ -116,10 +140,60 @@ export default function DatasetsPage({ datasets, activeDatasetId, onSetActive, o
                           <FileText className="w-5 h-5 text-white" />
                         </div>
                         <div>
-                          <h4 className="font-black text-slate-900 text-sm truncate max-w-[150px]" title={d.filename}>
+                          <h4 className="font-black text-slate-900 text-sm truncate max-w-[150px] block leading-snug" title={d.filename}>
                             {d.filename}
                           </h4>
-                          <span className="text-[10px] text-slate-400 font-bold">
+                          {editingDatasetId === d.dataset_id ? (
+                            <div className="flex items-center gap-1.5 my-0.5">
+                              <input
+                                type="text"
+                                value={editDescriptionVal}
+                                onChange={(e) => setEditDescriptionVal(e.target.value)}
+                                onKeyDown={(e) => {
+                                  if (e.key === 'Enter') handleSaveEdit(d.dataset_id);
+                                  if (e.key === 'Escape') handleCancelEdit();
+                                }}
+                                onBlur={() => handleSaveEdit(d.dataset_id)}
+                                className="text-[10px] font-medium border-2 border-slate-900 rounded-md px-1.5 py-0.5 bg-slate-50 focus:outline-none max-w-[110px]"
+                                autoFocus
+                              />
+                              <button
+                                onMouseDown={(e) => {
+                                  e.preventDefault(); // prevent blur before click
+                                  handleSaveEdit(d.dataset_id);
+                                }}
+                                className="text-xs font-bold text-emerald-600 hover:text-emerald-700 cursor-pointer"
+                                title="Save"
+                              >
+                                ✓
+                              </button>
+                              <button
+                                onMouseDown={(e) => {
+                                  e.preventDefault(); // prevent blur before click
+                                  handleCancelEdit();
+                                }}
+                                className="text-xs font-bold text-rose-600 hover:text-rose-700 cursor-pointer"
+                                title="Cancel"
+                              >
+                                ✗
+                              </button>
+                            </div>
+                          ) : (
+                            <div 
+                              onClick={() => handleStartEdit(d.dataset_id, d.description)}
+                              className="flex items-center gap-1.5 my-0.5 cursor-pointer group/desc"
+                              title="Click to edit description"
+                            >
+                              <span 
+                                className={`text-[10px] font-bold truncate max-w-[120px] block ${
+                                  d.description ? 'text-slate-500' : 'text-slate-400 italic'
+                                }`}
+                              >
+                                {d.description || "No description ✏️"}
+                              </span>
+                            </div>
+                          )}
+                          <span className="text-[10px] text-slate-400 font-bold block">
                             ID: {d.dataset_id}
                           </span>
                         </div>

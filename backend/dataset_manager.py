@@ -73,7 +73,46 @@ class DatasetStore:
         with open(REGISTRY_PATH, 'w') as f:
             json.dump(registry, f, indent=2, default=str)
 
-    def upload_dataset(self, file_content: bytes, filename: str) -> dict:
+    def auto_generate_description(self, filename: str) -> str:
+        import re
+        base = os.path.splitext(filename)[0]
+        base_clean = base.replace('_', ' ').replace('-', ' ').strip()
+        
+        # Check if it matches a known convention like PLFS
+        if 'plfs' in base_clean.lower():
+            # Try to find year (4 digits)
+            year_match = re.search(r'\b(20\d{2})\b', base_clean)
+            year = year_match.group(1) if year_match else ""
+            
+            # Try to find visit number
+            visit_match = re.search(r'(?i)visit\s*(\d+)', base_clean)
+            if not visit_match:
+                visit_match = re.search(r'(?i)v\s*(\d+)', base_clean)
+            visit = f", Visit {visit_match.group(1)}" if visit_match else ""
+            
+            year_str = f" {year}" if year else ""
+            return f"PLFS{year_str} – Employment/Unemployment Survey{visit}"
+        
+        # Other conventions could be "survey" or general names
+        # e.g., if there's a year and a name: "Survey 2025"
+        year_match = re.search(r'\b(20\d{2})\b', base_clean)
+        if year_match:
+            year = year_match.group(1)
+            name_parts = [p.capitalize() for p in base_clean.split() if p not in (year, 'csv', 'xlsx', 'xls')]
+            name = " ".join(name_parts)
+            if name:
+                return f"{name} {year}"
+            else:
+                return f"Survey {year}"
+                
+        # Default fallback: capitalized clean filename if it's reasonably descriptive
+        parts = [p.capitalize() for p in base_clean.split()]
+        if len(parts) >= 2:
+            return " ".join(parts)
+            
+        return ""
+
+    def upload_dataset(self, file_content: bytes, filename: str, description: Optional[str] = None) -> dict:
         """Upload and process a new dataset."""
         dataset_id = str(uuid.uuid4())[:8]
         dataset_dir = os.path.join(DATASETS_DIR, dataset_id)
@@ -111,10 +150,15 @@ class DatasetStore:
         with open(config_path, 'w') as f:
             json.dump(config, f, indent=2)
 
+        # Auto-generate description if not provided
+        if not description or not description.strip():
+            description = self.auto_generate_description(filename)
+
         # Create metadata
         meta = {
             "dataset_id": dataset_id,
             "filename": filename,
+            "description": description or "",
             "format": ext.lstrip('.'),
             "total_records": len(df),
             "total_columns": len(df.columns),
@@ -149,9 +193,9 @@ class DatasetStore:
             },
         }
 
-    def upload_historical(self, file_content: bytes, filename: str, target_dataset_id: str) -> dict:
+    def upload_historical(self, file_content: bytes, filename: str, target_dataset_id: str, description: Optional[str] = None) -> dict:
         """Upload a historical baseline dataset."""
-        result = self.upload_dataset(file_content, filename)
+        result = self.upload_dataset(file_content, filename, description)
         hist_id = result["dataset_id"]
         self.datasets[hist_id]["is_historical"] = True
         self.datasets[hist_id]["baseline_for"] = target_dataset_id
@@ -221,6 +265,14 @@ class DatasetStore:
         with open(config_path, 'w') as f:
             json.dump(self.configs[dataset_id], f, indent=2)
         return self.configs[dataset_id]
+
+    def update_metadata(self, dataset_id: str, updates: dict) -> Optional[dict]:
+        """Update metadata for a dataset."""
+        if dataset_id not in self.datasets:
+            return None
+        self.datasets[dataset_id].update(updates)
+        self._save_registry()
+        return self.datasets[dataset_id]
 
     def list_datasets(self) -> List[dict]:
         """List all datasets with metadata."""

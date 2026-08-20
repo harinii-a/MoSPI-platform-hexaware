@@ -1,1 +1,17 @@
-./frontend/app/node_modules
+# Python virtual environment
+venv/
+
+# Python cache
+__pycache__/
+*.py[cod]
+
+# Node dependencies
+frontend/app/node_modules/
+
+# Build files
+frontend/app/dist/
+
+# Generated reports and test files
+backend/*.pdf
+data/reports/
+data/models/

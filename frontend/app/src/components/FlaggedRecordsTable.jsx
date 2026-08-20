@@ -1,14 +1,42 @@
 import React, { useState, useMemo } from 'react';
-import { AlertCircle, CheckCircle2, ShieldAlert, Cpu, UserX, Search, Filter, Check, X, ArrowUpRight, ShieldCheck, ChevronLeft, ChevronRight } from 'lucide-react';
+import { AlertCircle, CheckCircle2, Cpu, UserX, Search, X, ShieldCheck, ChevronLeft, ChevronRight, Info } from 'lucide-react';
 import { datasetApi } from '../api';
 
-export default function FlaggedRecordsTable({ summary, datasetId }) {
+export default function FlaggedRecordsTable({ summary, datasetId, onlyMlAnomalies = false }) {
   const [filterSeverity, setFilterSeverity] = useState('ALL');
   const [searchTerm, setSearchTerm] = useState('');
   const [page, setPage] = useState(1);
   const [pageSize, setPageSize] = useState(15);
   const [reviewingIndex, setReviewingIndex] = useState(null);
   const [reviewComment, setReviewComment] = useState('');
+  const [openPopoverIndex, setOpenPopoverIndex] = useState(null);
+
+  const [autoApprove, setAutoApprove] = useState(() => {
+    return localStorage.getItem('auto_approve_clean') === 'true';
+  });
+  const [toastMessage, setToastMessage] = useState('');
+  const [isProcessing, setIsProcessing] = useState(false);
+
+  React.useEffect(() => {
+    if (toastMessage) {
+      const timer = setTimeout(() => setToastMessage(''), 4000);
+      return () => clearTimeout(timer);
+    }
+  }, [toastMessage]);
+
+  React.useEffect(() => {
+    const handleOutsideClick = (e) => {
+      if (openPopoverIndex !== null) {
+        const isClickInsidePopover = e.target.closest('.findings-popover');
+        const isClickInsideButton = e.target.closest('.findings-popover-btn');
+        if (!isClickInsidePopover && !isClickInsideButton) {
+          setOpenPopoverIndex(null);
+        }
+      }
+    };
+    document.addEventListener('mousedown', handleOutsideClick);
+    return () => document.removeEventListener('mousedown', handleOutsideClick);
+  }, [openPopoverIndex]);
 
   const records = summary?.records || [];
   const displayColumns = summary?.display_columns || [];
@@ -25,9 +53,45 @@ export default function FlaggedRecordsTable({ summary, datasetId }) {
     return map;
   }, [violations]);
 
+  React.useEffect(() => {
+    const runAutoApproveOnLoad = async () => {
+      const isChecked = localStorage.getItem('auto_approve_clean') === 'true';
+      if (isChecked && datasetId && records.length > 0) {
+        const hasCleanNew = records.some((rec) => {
+          const recViolations = violationMap[rec._index] || [];
+          const isClean = !rec.has_rule_violation && !rec.has_ml_anomaly && !rec.has_enum_bias && recViolations.length === 0;
+          return isClean && (rec.review_status === 'NEW' || !rec.review_status);
+        });
+
+        if (hasCleanNew) {
+          try {
+            const res = await datasetApi.autoApproveClean(datasetId);
+            const count = res.data.approved_count;
+            if (count > 0) {
+              setToastMessage(`${count} clean records auto-approved`);
+              records.forEach((rec) => {
+                const recViolations = violationMap[rec._index] || [];
+                const isClean = !rec.has_rule_violation && !rec.has_ml_anomaly && !rec.has_enum_bias && recViolations.length === 0;
+                if (isClean && (rec.review_status === 'NEW' || !rec.review_status)) {
+                  rec.review_status = 'APPROVED';
+                  rec.review_comment = 'Auto-approved clean record';
+                }
+              });
+              setPage(p => p); // trigger re-render
+            }
+          } catch (err) {
+            console.error('Auto-approve on load failed:', err);
+          }
+        }
+      }
+    };
+    runAutoApproveOnLoad();
+  }, [datasetId, records, violationMap]);
+
   // Filtered records
   const filteredRecords = useMemo(() => {
     return records.filter((rec) => {
+      if (onlyMlAnomalies && !rec.has_ml_anomaly) return false;
       if (filterSeverity === 'HIGH' && rec.risk_level !== 'High') return false;
       if (filterSeverity === 'MEDIUM' && rec.risk_level !== 'Medium') return false;
       if (filterSeverity === 'LOW' && rec.risk_level !== 'Low') return false;
@@ -42,7 +106,7 @@ export default function FlaggedRecordsTable({ summary, datasetId }) {
       }
       return true;
     });
-  }, [records, filterSeverity, searchTerm]);
+  }, [records, filterSeverity, searchTerm, onlyMlAnomalies]);
 
   // Pagination
   const totalPages = Math.ceil(filteredRecords.length / pageSize) || 1;
@@ -75,6 +139,38 @@ export default function FlaggedRecordsTable({ summary, datasetId }) {
     }
   };
 
+  const handleToggleAutoApprove = async (e) => {
+    const checked = e.target.checked;
+    setAutoApprove(checked);
+    localStorage.setItem('auto_approve_clean', checked ? 'true' : 'false');
+
+    if (checked && datasetId) {
+      setIsProcessing(true);
+      try {
+        const res = await datasetApi.autoApproveClean(datasetId);
+        const count = res.data.approved_count;
+        if (count > 0) {
+          setToastMessage(`${count} clean records auto-approved`);
+          records.forEach((rec) => {
+            const recViolations = violationMap[rec._index] || [];
+            const isClean = !rec.has_rule_violation && !rec.has_ml_anomaly && !rec.has_enum_bias && recViolations.length === 0;
+            if (isClean && (rec.review_status === 'NEW' || !rec.review_status)) {
+              rec.review_status = 'APPROVED';
+              rec.review_comment = 'Auto-approved clean record';
+            }
+          });
+          setPage(p => p);
+        } else {
+          setToastMessage('No new clean records to auto-approve');
+        }
+      } catch (err) {
+        console.error('Auto-approval failed:', err);
+      } finally {
+        setIsProcessing(false);
+      }
+    }
+  };
+
   const getRiskBadge = (level) => {
     switch (level) {
       case 'High':
@@ -101,15 +197,36 @@ export default function FlaggedRecordsTable({ summary, datasetId }) {
 
   return (
     <div className="bg-white rounded-3xl p-6 border-2 border-slate-900 shadow-sketch mb-8">
+      {toastMessage && (
+        <div className="mb-6 flex items-center justify-between bg-emerald-100 border-2 border-slate-900 text-emerald-900 px-4 py-3 rounded-2xl shadow-sketch-sm font-black text-xs animate-pulse">
+          <div className="flex items-center gap-2">
+            <CheckCircle2 className="w-4 h-4 text-emerald-600 shrink-0" />
+            <span>{toastMessage}</span>
+          </div>
+          <button 
+            onClick={() => setToastMessage('')}
+            className="p-1 rounded-md hover:bg-emerald-200 text-emerald-800 transition-colors cursor-pointer"
+          >
+            <X className="w-3.5 h-3.5" />
+          </button>
+        </div>
+      )}
+
       {/* Header & Controls */}
       <div className="flex flex-col lg:flex-row lg:items-center justify-between gap-4 mb-6">
         <div>
           <h3 className="font-black text-slate-900 text-lg flex items-center gap-2">
-            <ShieldCheck className="w-5 h-5 text-blue-600" />
-            Field Data Verification Inspector
+            {onlyMlAnomalies ? (
+              <Cpu className="w-5 h-5 text-amber-500 animate-pulse" />
+            ) : (
+              <ShieldCheck className="w-5 h-5 text-blue-600" />
+            )}
+            {onlyMlAnomalies ? 'ML Outlier Verification Queue' : 'Field Data Verification Inspector'}
           </h3>
           <p className="text-xs font-bold text-slate-500">
-            Real-time record inspection, dynamic schema validation, and supervisor review
+            {onlyMlAnomalies
+              ? 'Supervised review queue for records flagged by Isolation Forest anomaly engine'
+              : 'Real-time record inspection, dynamic schema validation, and supervisor review'}
           </p>
         </div>
 
@@ -125,6 +242,18 @@ export default function FlaggedRecordsTable({ summary, datasetId }) {
               className="pl-9 pr-4 py-2 bg-slate-50 border-2 border-slate-900 text-xs font-bold rounded-xl text-slate-900 focus:outline-none shadow-sketch-sm w-44 lg:w-56"
             />
           </div>
+
+          {/* Auto-approve Clean Checkbox */}
+          <label className="flex items-center gap-2 cursor-pointer bg-slate-50 border-2 border-slate-900 px-3.5 py-1.5 rounded-xl shadow-sketch-sm text-xs font-black text-slate-800 hover:bg-slate-100 transition-all select-none">
+            <input
+              type="checkbox"
+              checked={autoApprove}
+              onChange={handleToggleAutoApprove}
+              disabled={isProcessing}
+              className="rounded text-blue-600 border-2 border-slate-900 focus:ring-0 cursor-pointer w-3.5 h-3.5"
+            />
+            <span>Auto-approve clean</span>
+          </label>
 
           {/* Severity Filter */}
           <div className="flex items-center gap-1 bg-slate-100 p-1 rounded-xl border-2 border-slate-900 shadow-sketch-sm">
@@ -161,6 +290,7 @@ export default function FlaggedRecordsTable({ summary, datasetId }) {
                 </th>
               ))}
               <th className="py-3.5 px-3">Quality Findings</th>
+              {onlyMlAnomalies && <th className="py-3.5 px-3">ML Anomaly Score</th>}
               <th className="py-3.5 px-3">Risk Score</th>
               <th className="py-3.5 px-3">Review Status</th>
               <th className="py-3.5 px-3 rounded-r-xl">Action</th>
@@ -172,6 +302,23 @@ export default function FlaggedRecordsTable({ summary, datasetId }) {
                 const recViolations = violationMap[rec._index] || [];
                 const score = rec.risk_score ?? 0;
                 const isReviewing = reviewingIndex === rec._index;
+                const rowFindings = [
+                  ...recViolations.map(v => ({
+                    type: v.rule_type,
+                    reason: v.description,
+                    colorClass: 'text-rose-600'
+                  })),
+                  ...(rec.has_ml_anomaly ? [{
+                    type: 'Outlier',
+                    reason: 'Multivariate outlier flagged by Isolation Forest ML anomaly check',
+                    colorClass: 'text-amber-600'
+                  }] : []),
+                  ...(rec.has_enum_bias ? [{
+                    type: 'Staff Skew',
+                    reason: 'Interviewer exhibits significant reporting variance (enumerator bias)',
+                    colorClass: 'text-purple-600'
+                  }] : [])
+                ];
 
                 return (
                   <React.Fragment key={rec._index}>
@@ -188,12 +335,11 @@ export default function FlaggedRecordsTable({ summary, datasetId }) {
 
                       {/* Findings Badges */}
                       <td className="py-3.5 px-3 max-w-xs">
-                        <div className="flex flex-wrap gap-1">
+                        <div className="flex flex-wrap items-center gap-1.5">
                           {recViolations.slice(0, 2).map((v, i) => (
                             <span
                               key={i}
                               className="inline-flex items-center gap-1 bg-rose-100 text-rose-800 border border-slate-900 px-2 py-0.5 rounded-md text-[9px] font-black truncate max-w-[150px]"
-                              title={v.description}
                             >
                               <AlertCircle className="w-2.5 h-2.5 text-rose-600 shrink-0" />
                               {v.rule_type}
@@ -217,8 +363,62 @@ export default function FlaggedRecordsTable({ summary, datasetId }) {
                               <CheckCircle2 className="w-2.5 h-2.5 text-emerald-600" /> Clean
                             </span>
                           )}
+
+                          {/* Consolidated Popover Details Trigger */}
+                          {rowFindings.length > 0 && (
+                            <div className="relative inline-block shrink-0">
+                              <button
+                                onClick={(e) => {
+                                  e.stopPropagation();
+                                  setOpenPopoverIndex(openPopoverIndex === rec._index ? null : rec._index);
+                                }}
+                                className="findings-popover-btn p-1 rounded-md bg-slate-100 hover:bg-slate-200 border border-slate-900 shadow-sketch-sm hover:shadow-sketch transition-all cursor-pointer flex items-center justify-center text-slate-700 hover:text-slate-900"
+                                title="View quality findings details"
+                              >
+                                <Info className="w-3.5 h-3.5" />
+                              </button>
+
+                              {openPopoverIndex === rec._index && (
+                                <div className="findings-popover absolute z-50 left-0 mt-2 w-72 sm:w-80 bg-white border-2 border-slate-900 rounded-xl p-4 shadow-sketch text-left font-bold text-slate-800">
+                                  <div className="flex items-center justify-between border-b-2 border-slate-100 pb-2 mb-3">
+                                    <span className="text-xs font-black text-slate-900 uppercase">Quality Findings Details</span>
+                                    <button
+                                      onClick={(e) => {
+                                        e.stopPropagation();
+                                        setOpenPopoverIndex(null);
+                                      }}
+                                      className="p-1 rounded-md hover:bg-slate-100 text-slate-500 hover:text-slate-900 transition-colors cursor-pointer"
+                                    >
+                                      <X className="w-3.5 h-3.5" />
+                                    </button>
+                                  </div>
+
+                                  <div className="space-y-3 max-h-48 overflow-y-auto pr-1">
+                                    {rowFindings.map((finding, idx) => (
+                                      <div key={idx} className="text-xs leading-normal">
+                                        <span className={`font-black uppercase tracking-wider ${finding.colorClass}`}>
+                                          {finding.type}
+                                        </span>
+                                        <span className="text-slate-400 font-bold mx-1">:</span>
+                                        <span className="text-slate-600 font-semibold">{finding.reason}</span>
+                                      </div>
+                                    ))}
+                                  </div>
+                                </div>
+                              )}
+                            </div>
+                          )}
                         </div>
                       </td>
+
+                      {/* ML Anomaly Score */}
+                      {onlyMlAnomalies && (
+                        <td className="py-3.5 px-3 whitespace-nowrap">
+                          <span className="inline-flex items-center gap-1 bg-amber-100 text-amber-900 border border-slate-900 px-2 py-1 rounded-md text-[10px] font-black">
+                            {rec.ml_anomaly_score !== undefined && rec.ml_anomaly_score !== null ? rec.ml_anomaly_score.toFixed(4) : '—'}
+                          </span>
+                        </td>
+                      )}
 
                       {/* Risk Score */}
                       <td className="py-3.5 px-3 whitespace-nowrap">
@@ -248,7 +448,7 @@ export default function FlaggedRecordsTable({ summary, datasetId }) {
                     {/* Inline Review Drawer */}
                     {isReviewing && (
                       <tr className="bg-amber-50/50">
-                        <td colSpan={displayColumns.slice(0, 6).length + 5} className="p-4 border-2 border-dashed border-amber-300 rounded-xl">
+                        <td colSpan={displayColumns.slice(0, 6).length + (onlyMlAnomalies ? 6 : 5)} className="p-4 border-2 border-dashed border-amber-300 rounded-xl">
                           <div className="flex flex-col sm:flex-row items-start sm:items-center justify-between gap-3">
                             <div className="flex-1 w-full">
                               <label className="block text-[11px] font-black text-slate-800 mb-1">

@@ -91,8 +91,9 @@ def detect_ml_anomalies(
             preds = model.fit_predict(feature_df)
             scores = model.decision_function(feature_df)
 
-        is_anomaly = (preds == -1).tolist()
         anomaly_scores = (-scores).tolist()  # Higher score = more anomalous
+        flagging_threshold = -0.05
+        is_anomaly = [s >= flagging_threshold for s in anomaly_scores]
         anomaly_indices = [int(i) for i, a in enumerate(is_anomaly) if a]
 
         return {

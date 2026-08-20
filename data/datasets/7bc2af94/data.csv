@@ -1,13 +1,17 @@
 record_id,state_name,district_code,enumerator_id,respondent_age,emp_status,weekly_hours,monthly_income
-101,Tamil Nadu,Erode,E01,28,Employed,40,25000
-102,Tamil Nadu,Erode,E01,35,Employed,48,32000
-103,Tamil Nadu,Salem,E02,14,Employed,45,8000
-104,Tamil Nadu,Salem,E02,42,Unemployed,0,0
-105,Tamil Nadu,Coimbatore,E03,50,Employed,120,120000
-106,Tamil Nadu,Coimbatore,E03,19,Student,0,0
-107,Kerala,Kochi,E04,31,Employed,38,28000
-108,Kerala,Kochi,E04,62,Retired,0,15000
-109,Kerala,Kollam,E05,45,Employed,42,30000
-110,Kerala,Kollam,E05,29,Employed,50,31000
-111,Kerala,Kannur,E01,38,Employed,40,29000
-112,Kerala,Kannur,E01,55,Employed,44,35000
+101,Tamil Nadu,Erode,E01,28.0,Employed,40.0,25000.0
+102,Tamil Nadu,Erode,E01,35.0,Employed,48.0,32000.0
+103,Tamil Nadu,Salem,E02,14.0,Employed,45.0,8000.0
+104,Tamil Nadu,Salem,E02,42.0,Unemployed,0.0,0.0
+105,Tamil Nadu,Coimbatore,E03,50.0,Employed,120.0,120000.0
+106,Tamil Nadu,Coimbatore,E03,19.0,Student,0.0,0.0
+107,Kerala,Kochi,E04,31.0,Employed,38.0,28000.0
+108,Kerala,Kochi,E04,62.0,Retired,0.0,15000.0
+109,Kerala,Kollam,E05,45.0,Employed,42.0,30000.0
+110,Kerala,Kollam,E05,29.0,Employed,50.0,31000.0
+111,Kerala,Kannur,E01,38.0,Employed,40.0,29000.0
+112,Kerala,Kannur,E01,55.0,Employed,44.0,35000.0
+113,Tamil Nadu,Coimbatore,E01,35.0,Employed,40.0,30000.0
+114,Tamil Nadu,Coimbatore,E01,35.0,Employed,200.0,-5000.0
+115,Tamil Nadu,Coimbatore,E01,40.0,Employed,45.0,35000.0
+122,Tamil Nadu,Coimbatore,E03,22.0,Retired,55.0,60000.0

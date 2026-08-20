@@ -55,6 +55,7 @@ export const datasetApi = {
   schema: (id) => api.get(`/api/v1/datasets/${id}/schema`),
   config: (id) => api.get(`/api/v1/datasets/${id}/configuration`),
   updateConfig: (id, config) => api.put(`/api/v1/datasets/${id}/configuration`, config),
+  updateMetadata: (id, metaUpdates) => api.put(`/api/v1/datasets/${id}`, metaUpdates),
   activate: (id) => api.post(`/api/v1/datasets/${id}/activate`),
   delete: (id) => api.delete(`/api/v1/datasets/${id}`),
   validate: (id) => api.post(`/api/v1/datasets/${id}/validate`),
@@ -68,6 +69,8 @@ export const datasetApi = {
     api.get(`/api/v1/datasets/${id}/records/${recordIndex}/explanation`),
   review: (id, recordIndex, action) =>
     api.post(`/api/v1/datasets/${id}/records/${recordIndex}/review`, action),
+  autoApproveClean: (id) =>
+    api.post(`/api/v1/datasets/${id}/auto-approve-clean`),
   evaluation: (id) => api.get(`/api/v1/datasets/${id}/evaluation`),
   generateReport: (id, format = 'pdf') =>
     api.post(`/api/v1/datasets/${id}/reports/generate?format=${format}`, null, {

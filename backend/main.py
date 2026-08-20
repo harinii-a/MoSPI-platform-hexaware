@@ -7,12 +7,12 @@ import os
 import json
 import asyncio
 from datetime import datetime
-from pydantic import BaseModel
+from pydantic import BaseModel, ConfigDict
 from typing import Optional, List, Dict, Any
 
 sys.path.insert(0, os.path.dirname(os.path.abspath(__file__)))
 
-from fastapi import FastAPI, UploadFile, File, Header as FastAPIHeader, HTTPException, WebSocket, WebSocketDisconnect, Query
+from fastapi import FastAPI, UploadFile, File, Form, Header as FastAPIHeader, HTTPException, WebSocket, WebSocketDisconnect, Query
 from fastapi.responses import FileResponse
 from fastapi.middleware.cors import CORSMiddleware
 import pandas as pd
@@ -169,6 +169,10 @@ class ConfigUpdate(BaseModel):
     measure_cols: Optional[List[str]] = None
     risk_weights: Optional[Dict[str, int]] = None
 
+class DatasetMetaUpdate(BaseModel):
+    description: Optional[str] = None
+    filename: Optional[str] = None
+
 class UserCreate(BaseModel):
     username: str
     password: str
@@ -182,6 +186,19 @@ class UserUpdate(BaseModel):
     department: Optional[str] = None
     password: Optional[str] = None
     is_active: Optional[bool] = None
+
+class SurveyRecordRequest(BaseModel):
+    model_config = ConfigDict(extra="allow")
+
+    record_id: Optional[int] = None
+    state_name: Optional[str] = None
+    district_code: Optional[str] = None
+    enumerator_id: Optional[str] = None
+    respondent_age: Optional[int] = None
+    emp_status: Optional[str] = None
+    weekly_hours: Optional[int] = None
+    monthly_income: Optional[int] = None
+
 
 
 # ─────────────────────────────────────────────────────────────────
@@ -210,13 +227,14 @@ def get_roles():
 @app.post("/api/v1/datasets/upload")
 async def upload_dataset(
     file: UploadFile = File(...),
+    description: Optional[str] = Form(None),
     authorization: Optional[str] = FastAPIHeader(None),
 ):
     user = _get_user(authorization)
     content = await file.read()
 
     try:
-        result = dataset_store.upload_dataset(content, file.filename)
+        result = dataset_store.upload_dataset(content, file.filename, description)
     except Exception as e:
         raise HTTPException(status_code=400, detail=str(e))
 
@@ -247,13 +265,14 @@ async def upload_dataset(
 async def upload_historical(
     file: UploadFile = File(...),
     target_dataset_id: str = Query(...),
+    description: Optional[str] = Form(None),
     authorization: Optional[str] = FastAPIHeader(None),
 ):
     user = _get_user(authorization)
     content = await file.read()
 
     try:
-        result = dataset_store.upload_historical(content, file.filename, target_dataset_id)
+        result = dataset_store.upload_historical(content, file.filename, target_dataset_id, description)
     except Exception as e:
         raise HTTPException(status_code=400, detail=str(e))
 
@@ -275,6 +294,23 @@ def get_dataset_info(dataset_id: str):
     meta = dataset_store.get_metadata(dataset_id)
     if not meta:
         raise HTTPException(status_code=404, detail="Dataset not found")
+    return meta
+
+@app.put("/api/v1/datasets/{dataset_id}")
+def update_dataset_meta(dataset_id: str, meta_update: DatasetMetaUpdate,
+                        authorization: Optional[str] = FastAPIHeader(None)):
+    user = _get_user(authorization)
+    updates = {k: v for k, v in meta_update.dict().items() if v is not None}
+    meta = dataset_store.update_metadata(dataset_id, updates)
+    if not meta:
+        raise HTTPException(status_code=404, detail="Dataset not found")
+        
+    add_audit_entry(
+        user.get("name", "System"), user.get("role", "System"),
+        "DATASET_META_UPDATED", f"Dataset {dataset_id}", None, "UPDATED",
+        f"Updated dataset metadata",
+        dataset_id=dataset_id
+    )
     return meta
 
 @app.get("/api/v1/datasets/{dataset_id}/schema")
@@ -335,9 +371,469 @@ def delete_dataset(dataset_id: str, authorization: Optional[str] = FastAPIHeader
     return {"message": "Dataset deleted"}
 
 
+@app.post("/api/v1/ingest/record")
+@app.post("/ingest/record")
+async def ingest_record(
+    req: SurveyRecordRequest,
+    dataset_id: Optional[str] = Query(None),
+    authorization: Optional[str] = FastAPIHeader(None),
+):
+    user = None
+    try:
+        if authorization:
+            user = _get_user(authorization)
+    except Exception:
+        pass
+
+    target_id = dataset_id or dataset_store.get_active_id()
+    if not target_id:
+        raise HTTPException(status_code=404, detail="No active dataset found and no dataset_id provided")
+
+    df_active = dataset_store.get_dataset(target_id)
+    config = dataset_store.get_config(target_id)
+    schema = dataset_store.get_schema(target_id)
+    if df_active is None or config is None:
+        raise HTTPException(status_code=404, detail="Dataset not found or configuration not found")
+
+    record_dict = {k: v for k, v in req.model_dump().items() if v is not None}
+
+    # Check for duplicate record_id first before anything else
+    record_id_col = config.get("record_id_col")
+    if record_id_col and record_id_col in record_dict and record_dict[record_id_col] is not None:
+        rec_id_val = record_dict[record_id_col]
+        if record_id_col in df_active.columns:
+            exists = False
+            try:
+                if rec_id_val in df_active[record_id_col].values:
+                    exists = True
+                elif str(rec_id_val) in df_active[record_id_col].astype(str).values:
+                    exists = True
+            except Exception:
+                pass
+            
+            if exists:
+                return {
+                    "status": "duplicate",
+                    "record_id": rec_id_val,
+                    "message": "Record already exists in dataset, not re-ingested"
+                }
+
+    # Auto-generate record_id if missing
+    if record_id_col and (record_id_col not in record_dict or record_dict[record_id_col] is None):
+        if record_id_col in df_active.columns:
+            try:
+                max_val = pd.to_numeric(df_active[record_id_col], errors='coerce').max()
+                if pd.notna(max_val):
+                    record_dict[record_id_col] = int(max_val) + 1
+                else:
+                    record_dict[record_id_col] = len(df_active) + 1
+            except Exception:
+                import uuid
+                record_dict[record_id_col] = str(uuid.uuid4())[:8]
+        else:
+            import uuid
+            record_dict[record_id_col] = str(uuid.uuid4())[:8]
+
+    # Auto-generate time_col if missing
+    time_col = config.get("time_col")
+    if time_col and (time_col not in record_dict or record_dict[time_col] is None):
+        record_dict[time_col] = datetime.utcnow().strftime("%Y-%m-%d")
+
+    # Ensure all required identifier columns are present, else raise 400
+    identifier_cols = config.get("identifier_cols") or []
+    for col in identifier_cols:
+        if col not in record_dict:
+            if col == record_id_col:
+                continue
+            raise HTTPException(status_code=400, detail=f"Missing required identifier column: {col}")
+
+    # Build 1-row DataFrame for validation, aligned with the columns in the active dataset
+    df_single = pd.DataFrame([record_dict], columns=df_active.columns)
+
+    # Run integrity checks
+    dataset_rules = [r for r in RULES_STORE if r.get("dataset_id") in (target_id, None)]
+    violations = run_integrity_checks(df_single, config, dataset_rules)
+    for v in violations:
+        v["record_index"] = 0
+
+    # Duplicate Check manually
+    if record_id_col and record_id_col in df_single.columns:
+        rec_id_val = df_single.at[0, record_id_col]
+        if record_id_col in df_active.columns and rec_id_val in df_active[record_id_col].values:
+            violations.append({
+                "record_index": 0,
+                "column": record_id_col,
+                "rule_type": "DUPLICATE_RECORD",
+                "severity": "HIGH",
+                "description": f"Duplicate {record_id_col}: {rec_id_val}",
+            })
+
+    hh_col = config.get("household_id_col")
+    person_col = config.get("person_id_col")
+    if hh_col and person_col and hh_col in df_single.columns and person_col in df_single.columns:
+        hh_val = df_single.at[0, hh_col]
+        person_val = df_single.at[0, person_col]
+        if hh_col in df_active.columns and person_col in df_active.columns:
+            exists = ((df_active[hh_col] == hh_val) & (df_active[person_col] == person_val)).any()
+            if exists:
+                violations.append({
+                    "record_index": 0,
+                    "column": f"{hh_col}+{person_col}",
+                    "rule_type": "DUPLICATE_PERSON",
+                    "severity": "HIGH",
+                    "description": "Duplicate household-person combination",
+                })
+
+    # Statistical Range Checks (IQR bounds from active dataset)
+    numeric_cols = [c for c in (config.get("numeric_cols") or []) if c in df_single.columns]
+    for col in numeric_cols:
+        if col in df_active.columns:
+            series = pd.to_numeric(df_active[col], errors='coerce').dropna()
+            if len(series) >= 10:
+                q1 = series.quantile(0.25)
+                q3 = series.quantile(0.75)
+                iqr = q3 - q1
+                if iqr > 0:
+                    lower = q1 - 3 * iqr
+                    upper = q3 + 3 * iqr
+                    val = pd.to_numeric(df_single.at[0, col], errors='coerce')
+                    if pd.notna(val) and (val < lower or val > upper):
+                        violations.append({
+                            "record_index": 0,
+                            "column": col,
+                            "rule_type": "STATISTICAL_OUTLIER",
+                            "severity": "MEDIUM",
+                            "description": f"Extreme value in {col}: {val} (expected range: {lower:.1f} to {upper:.1f})",
+                        })
+
+    # Run ML Anomaly Detection (Isolation Forest)
+    is_ml_anomaly = False
+    ml_score = 0.0
+    
+    if len(df_active) >= 10:
+        df_combined = pd.concat([df_active, df_single], ignore_index=True)
+        ml_result = detect_ml_anomalies(df_combined, config)
+        if ml_result.get("predictions") and len(ml_result["predictions"]) == len(df_combined):
+            is_ml_anomaly = bool(ml_result["predictions"][-1])
+            ml_score = float(ml_result["scores"][-1])
+    else:
+        ml_result = detect_ml_anomalies(df_single, config)
+        is_ml_anomaly = bool(ml_result["predictions"][0])
+        ml_score = float(ml_result["scores"][0])
+
+    # Run Enumerator Deviation manually
+    has_enum_bias = False
+    enum_col = config.get("enumerator_col")
+    if enum_col and enum_col in df_single.columns:
+        enum_val = str(df_single.at[0, enum_col])
+        enum_result = detect_enumerator_bias(df_active, config)
+        if enum_result.get("available"):
+            biased_ids = {str(a["enumerator_id"]) for a in enum_result.get("alerts", [])}
+            has_enum_bias = enum_val in biased_ids
+
+    # Run Cluster Deviation manually
+    has_cluster_dev = False
+    cluster_col = find_best_grouping_dimension(df_active, config)
+    if cluster_col and cluster_col in df_single.columns:
+        cluster_val = str(df_single.at[0, cluster_col])
+        if target_id in VALIDATION_CACHE:
+            cached_clusters = VALIDATION_CACHE[target_id].get("clusters", [])
+            for c in cached_clusters:
+                if str(c.get("id")) == cluster_val and c.get("riskScore", 0) >= 50:
+                    has_cluster_dev = True
+                    break
+
+    # Compute Record Risk Score
+    weights = config.get("risk_weights", {"rule": 35, "ml": 35, "enumerator": 15, "cluster": 15})
+    risk = compute_record_risk(
+        record_index=0,
+        rule_violations=violations,
+        is_ml_anomaly=is_ml_anomaly,
+        ml_anomaly_score=ml_score,
+        enum_deviation=has_enum_bias,
+        cluster_deviation=has_cluster_dev,
+        weights=weights,
+    )
+
+    # Persist the record
+    new_row_df = pd.DataFrame([record_dict])
+    for col in df_active.columns:
+        if col not in new_row_df.columns:
+            new_row_df[col] = np.nan
+    new_row_df = new_row_df[df_active.columns]
+
+    df_updated = pd.concat([df_active, new_row_df], ignore_index=True)
+    dataset_store.dataframes[target_id] = df_updated
+    if target_id in dataset_store.datasets:
+        dataset_store.datasets[target_id]["total_records"] = len(df_updated)
+        dataset_store._save_registry()
+        
+    datasets_dir = os.path.join(DATA_DIR, "datasets")
+    csv_path = os.path.join(datasets_dir, target_id, "data.csv")
+    df_updated.to_csv(csv_path, index=False)
+
+    # Invalidate cache for dataset
+    if target_id in VALIDATION_CACHE:
+        del VALIDATION_CACHE[target_id]
+    if target_id in ANALYTICS_CACHE:
+        del ANALYTICS_CACHE[target_id]
+
+    # Audit and Notifications
+    user_name = user.get("name", "System") if user else "System"
+    user_role = user.get("role", "System") if user else "System"
+    add_audit_entry(
+        user_name, user_role,
+        "RECORD_INGESTED", f"Record ID {record_dict.get(record_id_col, 'N/A')}",
+        None, "INGESTED",
+        f"Real-time ingestion of single record. Risk Score: {risk['risk_score']} ({risk['risk_level']})",
+        dataset_id=target_id
+    )
+    push_notification(
+        "success", "record", "Record Ingested",
+        f"Real-time record {record_dict.get(record_id_col, 'N/A')} ingested. Risk score: {risk['risk_score']}",
+        dataset_id=target_id
+    )
+
+    # WebSocket Broadcast
+    await manager.broadcast({
+        "type": "RECORD_INGESTED",
+        "dataset_id": target_id,
+        "record_id": record_dict.get(record_id_col),
+        "risk_score": risk["risk_score"],
+        "risk_level": risk["risk_level"],
+    })
+
+    return {
+        "status": "success",
+        "record_id": record_dict.get(record_id_col),
+        "has_rule_violation": risk["has_rule_violation"],
+        "violations": violations,
+        "has_ml_anomaly": risk["has_ml_anomaly"],
+        "ml_anomaly_score": ml_score,
+        "risk_score": risk["risk_score"],
+        "risk_level": risk["risk_level"],
+        "has_enum_bias": risk["has_enum_bias"],
+        "has_cluster_deviation": risk["has_cluster_deviation"],
+        "contributors": risk["contributors"]
+    }
+
+
+@app.delete("/api/v1/records/{record_id}")
+async def delete_record(
+    record_id: str,
+    dataset_id: Optional[str] = Query(None),
+    authorization: Optional[str] = FastAPIHeader(None),
+):
+    from fastapi.responses import JSONResponse
+    
+    user = None
+    try:
+        if authorization:
+            user = _get_user(authorization)
+    except Exception:
+        pass
+
+    target_id = dataset_id or dataset_store.get_active_id()
+    if not target_id:
+        return JSONResponse(
+            status_code=404,
+            content={"status": "not_found", "record_id": record_id, "message": "No active dataset found"}
+        )
+
+    df = dataset_store.get_dataset(target_id)
+    config = dataset_store.get_config(target_id)
+    if df is None or config is None:
+        return JSONResponse(
+            status_code=404,
+            content={"status": "not_found", "record_id": record_id, "message": "Dataset or configuration not found"}
+        )
+
+    record_id_col = config.get("record_id_col")
+    match_idx = None
+
+    if record_id_col and record_id_col in df.columns:
+        # Check integer match
+        try:
+            rec_id_int = int(record_id)
+            matches = df[df[record_id_col] == rec_id_int]
+            if not matches.empty:
+                match_idx = matches.index[0]
+        except Exception:
+            pass
+        
+        # Check string match
+        if match_idx is None:
+            matches = df[df[record_id_col].astype(str) == str(record_id)]
+            if not matches.empty:
+                match_idx = matches.index[0]
+    else:
+        if "record_id" in df.columns:
+            try:
+                rec_id_int = int(record_id)
+                matches = df[df["record_id"] == rec_id_int]
+                if not matches.empty:
+                    match_idx = matches.index[0]
+            except Exception:
+                pass
+            if match_idx is None:
+                matches = df[df["record_id"].astype(str) == str(record_id)]
+                if not matches.empty:
+                    match_idx = matches.index[0]
+        
+        if match_idx is None:
+            try:
+                idx_val = int(record_id)
+                if idx_val in df.index:
+                    match_idx = idx_val
+            except Exception:
+                pass
+
+    if match_idx is None:
+        return JSONResponse(
+            status_code=404,
+            content={"status": "not_found", "record_id": record_id}
+        )
+
+    # Perform deletion
+    df_updated = df.drop(index=match_idx).reset_index(drop=True)
+    dataset_store.dataframes[target_id] = df_updated
+    if target_id in dataset_store.datasets:
+        dataset_store.datasets[target_id]["total_records"] = len(df_updated)
+        dataset_store._save_registry()
+        
+    datasets_dir = os.path.join(DATA_DIR, "datasets")
+    csv_path = os.path.join(datasets_dir, target_id, "data.csv")
+    df_updated.to_csv(csv_path, index=False)
+
+    # Invalidate cache for dataset
+    if target_id in VALIDATION_CACHE:
+        del VALIDATION_CACHE[target_id]
+    if target_id in ANALYTICS_CACHE:
+        del ANALYTICS_CACHE[target_id]
+
+    # Add audit log entry
+    username = user.get("name", "System") if user else "System"
+    userrole = user.get("role", "System") if user else "System"
+    add_audit_entry(
+        username, userrole,
+        "RECORD_DELETED", f"Record {record_id}", None, "DELETED",
+        f"Deleted record {record_id} from dataset {target_id}",
+        dataset_id=target_id
+    )
+
+    # Broadcast update
+    await manager.broadcast({
+        "type": "RECORD_DELETED",
+        "dataset_id": target_id,
+        "record_id": record_id,
+        "total_records": len(df_updated)
+    })
+
+    return {"status": "deleted", "record_id": record_id}
+
+
+
+
 # ─────────────────────────────────────────────────────────────────
 # 3. Validation & Analysis Pipeline
 # ─────────────────────────────────────────────────────────────────
+def is_valid_grouping_dimension(df, col):
+    import re
+    n_rows = len(df)
+    if n_rows == 0:
+        return False
+    
+    try:
+        nunique = df[col].nunique()
+    except Exception:
+        return False
+        
+    unique_ratio = nunique / n_rows
+    
+    # Exclude any column that is high-cardinality relative to row count (e.g. >= 50%)
+    if unique_ratio >= 0.5 or nunique < 2:
+        return False
+        
+    col_lower = col.lower()
+    id_patterns = ["id", "code", "serial", "fsu", "mfsu", "uuid", "key"]
+    
+    matches_pattern = False
+    for p in id_patterns:
+        if re.search(r'(?i)(^|[^a-zA-Z])' + p + r'([^a-zA-Z]|$)', col):
+            matches_pattern = True
+            break
+            
+    if matches_pattern:
+        # Exclude UNLESS it's explicitly known to be a valid grouping dimension (e.g. district_code <= 100 unique values)
+        if nunique > 100:
+            return False
+            
+    return True
+
+def find_best_grouping_dimension(df, config):
+    candidates = []
+    
+    prio_keys = ["district_col", "state_col", "cluster_col"]
+    for key in prio_keys:
+        val = config.get(key)
+        if val and val in df.columns:
+            candidates.append(val)
+            
+    for col in config.get("geo_cols", []):
+        if col in df.columns and col not in candidates:
+            candidates.append(col)
+            
+    for col in config.get("categorical_cols", []):
+        if col in df.columns and col not in candidates:
+            candidates.append(col)
+            
+    for col in df.columns:
+        if col not in candidates:
+            candidates.append(col)
+            
+    valid_candidates = []
+    for col in candidates:
+        if is_valid_grouping_dimension(df, col):
+            valid_candidates.append(col)
+            
+    if not valid_candidates:
+        return None
+        
+    best_col = None
+    best_score = -999999
+    
+    for col in valid_candidates:
+        nunique = df[col].nunique()
+        score = 0
+        
+        source_index = candidates.index(col)
+        score -= source_index * 2
+        
+        if 5 <= nunique <= 50:
+            score += 15
+        elif 2 <= nunique < 5:
+            score += 5
+        elif 50 < nunique <= 100:
+            score += 8
+        else:
+            score += 0
+            
+        col_lower = col.lower()
+        if "district" in col_lower:
+            score += 20
+        if "state" in col_lower:
+            score += 18
+        if "region" in col_lower or "zone" in col_lower:
+            score += 10
+        if "cluster" in col_lower:
+            score += 5
+            
+        if score > best_score:
+            best_score = score
+            best_col = col
+            
+    return best_col
+
 def compute_dataset_summary(dataset_id: str) -> dict:
     """
     Compute the full dynamic summary for a dataset.
@@ -380,7 +876,7 @@ def compute_dataset_summary(dataset_id: str) -> dict:
             enum_biased_ids.add(str(alert["enumerator_id"]))
 
     # 4. Cluster analysis (vectorized for instant response)
-    cluster_col = config.get("cluster_col") or config.get("district_col")
+    cluster_col = find_best_grouping_dimension(df, config)
     clusters = []
     cluster_risk_map = {}
     if cluster_col and cluster_col in df.columns:
@@ -542,6 +1038,7 @@ def compute_dataset_summary(dataset_id: str) -> dict:
             "has_rule_violation": risk["has_rule_violation"],
             "has_ml_anomaly": risk["has_ml_anomaly"],
             "has_enum_bias": risk["has_enum_bias"],
+            "ml_anomaly_score": ml_score,
             "violation_count": len(rec_violations),
         })
 
@@ -579,6 +1076,10 @@ def compute_dataset_summary(dataset_id: str) -> dict:
         charts["barData"] = bar_data
         charts["barGroupKey"] = "group"
         charts["barLabel"] = f"Flags by {cluster_col}"
+    else:
+        charts["barData"] = []
+        charts["barGroupKey"] = "group"
+        charts["barLabel"] = "No suitable grouping dimension found"
 
     # Numerical distribution charts
     measure_cols = config.get("measure_cols", [])
@@ -853,6 +1354,26 @@ def explain_record(dataset_id: str, record_index: int):
         else:
             enum_detail = f"Enumerator {enum_val} within normal variance"
 
+    # Cluster deviation
+    cluster_col = find_best_grouping_dimension(df, config)
+    has_cluster_dev = False
+    cluster_detail = "No grouping dimension configured"
+    if cluster_col and cluster_col in df.columns:
+        cluster_val = str(row.get(cluster_col, ""))
+        summary = VALIDATION_CACHE.get(dataset_id)
+        if not summary:
+            summary = compute_dataset_summary(dataset_id)
+        
+        cluster_info = next((cl for cl in summary.get("clusters", []) if cl["id"] == cluster_val), None)
+        if cluster_info:
+            has_cluster_dev = cluster_info.get("riskScore", 0) >= 50
+            if has_cluster_dev:
+                cluster_detail = f"Cluster {cluster_val} has high risk score ({cluster_info.get('riskScore')})"
+            else:
+                cluster_detail = f"Cluster {cluster_val} within normal parameters (score: {cluster_info.get('riskScore')})"
+        else:
+            cluster_detail = f"Cluster {cluster_val} not profiled"
+
     weights = config.get("risk_weights", {"rule": 35, "ml": 35, "enumerator": 15, "cluster": 15})
     risk = compute_record_risk(
         record_index=record_index,
@@ -860,9 +1381,9 @@ def explain_record(dataset_id: str, record_index: int):
         is_ml_anomaly=is_ml,
         ml_anomaly_score=ml_score,
         enum_deviation=has_enum,
-        cluster_deviation=False,
+        cluster_deviation=has_cluster_dev,
         weights=weights,
-        extra_context={"ml_features": ml_features, "enum_detail": enum_detail},
+        extra_context={"ml_features": ml_features, "enum_detail": enum_detail, "cluster_detail": cluster_detail},
     )
 
     # Add record data
@@ -935,6 +1456,89 @@ async def review_record(dataset_id: str, record_index: int, action: ReviewAction
     })
 
     return {"message": "Review saved", "status": action.status}
+
+
+@app.post("/api/v1/datasets/{dataset_id}/auto-approve-clean")
+async def auto_approve_clean(dataset_id: str, authorization: Optional[str] = FastAPIHeader(None)):
+    user = _get_user(authorization)
+    df = dataset_store.get_dataset(dataset_id)
+    if df is None:
+        raise HTTPException(status_code=404, detail="Dataset not found")
+
+    config = dataset_store.get_config(dataset_id)
+
+    # 1. Run deterministic rule integrity checks
+    violations = run_integrity_checks(df, config, [r for r in RULES_STORE if r.get("dataset_id") in (dataset_id, None)])
+    violation_indices = {v["record_index"] for v in violations}
+
+    # 2. Run Isolation Forest ML anomaly checks
+    ml_result = detect_ml_anomalies(df, config)
+    ml_anomaly_indices = {i for i, is_anom in enumerate(ml_result.get("predictions", [])) if is_anom}
+
+    # 3. Run Enumerator Bias checks
+    enum_col = config.get("enumerator_col")
+    enum_biased_ids = set()
+    if enum_col and enum_col in df.columns:
+        enum_result = detect_enumerator_bias(df, config)
+        enum_biased_ids = {str(a["enumerator_id"]) for a in enum_result.get("alerts", [])}
+
+    if dataset_id not in REVIEW_STORE:
+        REVIEW_STORE[dataset_id] = {}
+
+    approved_count = 0
+
+    # 4. Check all records
+    for idx in range(len(df)):
+        current_status = REVIEW_STORE[dataset_id].get(idx, {}).get("status", "NEW")
+        if current_status != "NEW":
+            continue
+
+        # Check findings
+        has_viol = idx in violation_indices
+        has_ml = idx in ml_anomaly_indices
+
+        has_enum = False
+        if enum_col and enum_col in df.columns:
+            row = df.iloc[idx]
+            enum_val = str(row.get(enum_col, ""))
+            has_enum = enum_val in enum_biased_ids
+
+        # Clean is defined as: no violations, no ML anomaly, no enumerator bias
+        is_clean = not has_viol and not has_ml and not has_enum
+
+        if is_clean:
+            REVIEW_STORE[dataset_id][idx] = {
+                "status": "APPROVED",
+                "comment": "Auto-approved clean record",
+                "reviewer": "System (Auto-Approve)",
+                "reviewed_at": datetime.utcnow().isoformat(),
+            }
+
+            # Update cache if exists
+            if dataset_id in VALIDATION_CACHE:
+                for rec in VALIDATION_CACHE[dataset_id].get("records", []):
+                    if rec.get("_index") == idx:
+                        rec["review_status"] = "APPROVED"
+                        rec["review_comment"] = "Auto-approved clean record"
+                        break
+
+            # Add audit entry
+            add_audit_entry(
+                "System (Auto-Approve)", "System",
+                "RECORD_REVIEWED", f"Record #{idx}",
+                "NEW", "APPROVED", "Auto-approved clean record",
+                dataset_id=dataset_id
+            )
+            approved_count += 1
+
+    if approved_count > 0:
+        await manager.broadcast({
+            "type": "AUTO_APPROVE_COMPLETED",
+            "dataset_id": dataset_id,
+            "approved_count": approved_count,
+        })
+
+    return {"message": "Auto-approval complete", "approved_count": approved_count}
 
 
 # ─────────────────────────────────────────────────────────────────

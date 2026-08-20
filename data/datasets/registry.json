@@ -10,25 +10,16 @@
       "status": "PROFILED",
       "is_historical": false
     },
-    "0889e59a": {
-      "dataset_id": "0889e59a",
-      "filename": "generic_survey_2026.csv",
-      "format": "csv",
-      "total_records": 12,
-      "total_columns": 8,
-      "uploaded_at": "2026-08-16T11:51:34.489135",
-      "status": "PROFILED",
-      "is_historical": false
-    },
     "7bc2af94": {
       "dataset_id": "7bc2af94",
       "filename": "generic_survey_2026.csv",
       "format": "csv",
-      "total_records": 12,
+      "total_records": 16,
       "total_columns": 8,
       "uploaded_at": "2026-08-16T11:55:21.190344",
       "status": "PROFILED",
-      "is_historical": false
+      "is_historical": false,
+      "description": ""
     },
     "5da2f6e1": {
       "dataset_id": "5da2f6e1",
@@ -39,7 +30,19 @@
       "uploaded_at": "2026-08-16T12:55:50.121070",
       "status": "PROFILED",
       "is_historical": false
+    },
+    "37203467": {
+      "dataset_id": "37203467",
+      "filename": "plfs_validation_demo_8_columns.csv",
+      "description": "PLFS \u2013 Employment/Unemployment Survey",
+      "format": "csv",
+      "total_records": 90,
+      "total_columns": 8,
+      "uploaded_at": "2026-08-19T21:22:52.928892",
+      "status": "PROFILED",
+      "is_historical": true,
+      "baseline_for": "7bc2af94"
     }
   },
-  "active_dataset_id": "5da2f6e1"
+  "active_dataset_id": "7bc2af94"
 }

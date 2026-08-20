@@ -15,11 +15,11 @@ export default function Sidebar({ activeTab, setActiveTab, onFileUpload, isUploa
   const navItems = [
     { id: 'dashboard', label: 'Dashboard', icon: LayoutDashboard, roles: '*' },
     { id: 'analytics', label: 'Dataset Analytics', icon: PieChart, roles: '*' },
-    { id: 'datasets', label: 'Datasets', icon: Database, roles: '*' },
     { id: 'validation', label: 'Validation', icon: AlertTriangle, roles: ['ADMIN', 'DATA_SUPERVISOR', 'ANALYST'] },
     { id: 'anomalies', label: 'Anomalies', icon: Cpu, roles: ['ADMIN', 'DATA_SUPERVISOR', 'ANALYST'] },
     { id: 'explainai', label: 'Explainable AI', icon: Brain, roles: ['ADMIN', 'DATA_SUPERVISOR', 'ANALYST'] },
     { id: 'clusters', label: 'Clusters', icon: Network, roles: ['ADMIN', 'DATA_SUPERVISOR', 'ANALYST'] },
+    { id: 'datasets', label: 'Datasets', icon: Database, roles: '*' },
     { id: 'reports', label: 'Reports', icon: FileText, roles: ['ADMIN', 'DATA_SUPERVISOR', 'ANALYST'] },
     { id: 'rules', label: 'Rules', icon: BookOpen, roles: ['ADMIN', 'DATA_SUPERVISOR'] },
     { id: 'evaluation', label: 'Evaluation', icon: Award, roles: ['ADMIN', 'DATA_SUPERVISOR', 'ANALYST'] },

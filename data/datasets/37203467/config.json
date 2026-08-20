@@ -33,10 +33,10 @@
     "record_id"
   ],
   "weight_col": null,
-  "historical_dataset_id": "37203467",
+  "historical_dataset_id": null,
   "risk_weights": {
-    "rule": 30,
-    "ml": 40,
+    "rule": 35,
+    "ml": 35,
     "enumerator": 15,
     "cluster": 15
   }

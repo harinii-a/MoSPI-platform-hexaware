@@ -31,6 +31,7 @@ export default function SchemaConfigPanel({ datasetId, onConfigSaved }) {
   const [saving, setSaving] = useState(false);
   const [saveSuccess, setSaveSuccess] = useState(false);
   const [loading, setLoading] = useState(false);
+  const [searchTerm, setSearchTerm] = useState('');
 
   useEffect(() => {
     if (!datasetId) return;
@@ -203,69 +204,104 @@ export default function SchemaConfigPanel({ datasetId, onConfigSaved }) {
         </div>
       </div>
 
+      {/* Search Input */}
+      <div className="relative max-w-sm flex items-center">
+        <input
+          type="text"
+          value={searchTerm}
+          onChange={(e) => setSearchTerm(e.target.value)}
+          placeholder="Search column name..."
+          className="w-full text-xs font-bold border-2 border-slate-900 rounded-xl px-3.5 py-2 pr-8 bg-slate-50 focus:outline-none shadow-sketch-sm"
+        />
+        {searchTerm && (
+          <button
+            onClick={() => setSearchTerm('')}
+            className="absolute right-3 text-slate-500 hover:text-slate-900 font-bold text-xs cursor-pointer select-none"
+            title="Clear search"
+          >
+            ✕
+          </button>
+        )}
+      </div>
+
       {/* Schema Columns Table */}
       <div className="overflow-x-auto">
-        <table className="w-full text-left text-xs text-slate-700">
-          <thead className="bg-slate-100 text-slate-900 font-black uppercase tracking-wider border-b-2 border-slate-900">
-            <tr>
-              <th className="py-3 px-3 rounded-l-xl">Column Name</th>
-              <th className="py-3 px-3">Type</th>
-              <th className="py-3 px-3">Missing %</th>
-              <th className="py-3 px-3">Sample Values</th>
-              <th className="py-3 px-3">Auto Confidence</th>
-              <th className="py-3 px-3 rounded-r-xl">Assigned Semantic Role</th>
-            </tr>
-          </thead>
-          <tbody className="divide-y-2 divide-slate-100 font-bold">
-            {(schema.columns || []).map((col) => {
-              const currentRole = columnOverrides[col.name] || col.semantic_role || 'OTHER';
-              const confPct = Math.round((col.confidence || 0) * 100);
+        {(() => {
+          const filteredColumns = (schema.columns || []).filter((col) =>
+            col.name.toLowerCase().includes(searchTerm.toLowerCase())
+          );
+          if (filteredColumns.length > 0) {
+            return (
+              <table className="w-full text-left text-xs text-slate-700">
+                <thead className="bg-slate-100 text-slate-900 font-black uppercase tracking-wider border-b-2 border-slate-900">
+                  <tr>
+                    <th className="py-3 px-3 rounded-l-xl">Column Name</th>
+                    <th className="py-3 px-3">Type</th>
+                    <th className="py-3 px-3">Missing %</th>
+                    <th className="py-3 px-3">Sample Values</th>
+                    <th className="py-3 px-3">Auto Confidence</th>
+                    <th className="py-3 px-3 rounded-r-xl">Assigned Semantic Role</th>
+                  </tr>
+                </thead>
+                <tbody className="divide-y-2 divide-slate-100 font-bold">
+                  {filteredColumns.map((col) => {
+                    const currentRole = columnOverrides[col.name] || col.semantic_role || 'OTHER';
+                    const confPct = Math.round((col.confidence || 0) * 100);
 
-              return (
-                <tr key={col.name} className="hover:bg-slate-50 transition-colors">
-                  <td className="py-3 px-3 font-black text-slate-900">
-                    {col.name}
-                  </td>
-                  <td className="py-3 px-3">
-                    <span className="inline-flex px-2 py-0.5 rounded-md text-[10px] font-black border border-slate-900 bg-slate-100 text-slate-800">
-                      {col.inferred_type}
-                    </span>
-                  </td>
-                  <td className="py-3 px-3">
-                    <span className={col.missing_percentage > 10 ? 'text-rose-600 font-black' : 'text-slate-600'}>
-                      {col.missing_percentage}%
-                    </span>
-                  </td>
-                  <td className="py-3 px-3 max-w-xs truncate text-slate-500">
-                    {col.sample_values?.slice(0, 3).join(', ') || '—'}
-                  </td>
-                  <td className="py-3 px-3">
-                    <span className={`inline-flex px-2 py-0.5 rounded-full text-[10px] font-black border ${
-                      confPct >= 80 ? 'bg-emerald-100 text-emerald-800 border-emerald-300' :
-                      confPct >= 40 ? 'bg-amber-100 text-amber-800 border-amber-300' :
-                      'bg-slate-100 text-slate-600 border-slate-300'
-                    }`}>
-                      {confPct}% {col.semantic_role}
-                    </span>
-                  </td>
-                  <td className="py-3 px-3">
-                    <select
-                      value={currentRole}
-                      onChange={(e) => handleRoleChange(col.name, e.target.value)}
-                      className="bg-slate-50 border-2 border-slate-900 rounded-lg text-xs font-black px-2.5 py-1 text-slate-900 focus:outline-none shadow-sketch-sm cursor-pointer"
-                    >
-                      {SEMANTIC_OPTIONS.map((opt) => (
-                        <option key={opt.value} value={opt.value}>
-                          {opt.label}
-                        </option>
-                      ))}
-                    </select>
-                  </td>
-                </tr>
-              );
-            })}
-          </tbody>
-        </table>
+                    return (
+                      <tr key={col.name} className="hover:bg-slate-50 transition-colors">
+                        <td className="py-3 px-3 font-black text-slate-900">
+                          {col.name}
+                        </td>
+                        <td className="py-3 px-3">
+                          <span className="inline-flex px-2 py-0.5 rounded-md text-[10px] font-black border border-slate-900 bg-slate-100 text-slate-800">
+                            {col.inferred_type}
+                          </span>
+                        </td>
+                        <td className="py-3 px-3">
+                          <span className={col.missing_percentage > 10 ? 'text-rose-600 font-black' : 'text-slate-600'}>
+                            {col.missing_percentage}%
+                          </span>
+                        </td>
+                        <td className="py-3 px-3 max-w-xs truncate text-slate-500">
+                          {col.sample_values?.slice(0, 3).join(', ') || '—'}
+                        </td>
+                        <td className="py-3 px-3">
+                          <span className={`inline-flex px-2 py-0.5 rounded-full text-[10px] font-black border ${
+                            confPct >= 80 ? 'bg-emerald-100 text-emerald-800 border-emerald-300' :
+                            confPct >= 40 ? 'bg-amber-100 text-amber-800 border-amber-300' :
+                            'bg-slate-100 text-slate-600 border-slate-300'
+                          }`}>
+                            {confPct}% {col.semantic_role}
+                          </span>
+                        </td>
+                        <td className="py-3 px-3">
+                          <select
+                            value={currentRole}
+                            onChange={(e) => handleRoleChange(col.name, e.target.value)}
+                            className="bg-slate-50 border-2 border-slate-900 rounded-lg text-xs font-black px-2.5 py-1 text-slate-900 focus:outline-none shadow-sketch-sm cursor-pointer"
+                          >
+                            {SEMANTIC_OPTIONS.map((opt) => (
+                              <option key={opt.value} value={opt.value}>
+                                {opt.label}
+                              </option>
+                            ))}
+                          </select>
+                        </td>
+                      </tr>
+                    );
+                  })}
+                </tbody>
+              </table>
+            );
+          } else {
+            return (
+              <div className="p-8 text-center bg-slate-50 rounded-2xl border-2 border-dashed border-slate-300">
+                <p className="text-xs font-bold text-slate-500">No columns match your search</p>
+              </div>
+            );
+          }
+        })()}
       </div>
     </div>
   );

@@ -7,6 +7,7 @@ import ChartsSection from './components/ChartsSection';
 import FlaggedRecordsTable from './components/FlaggedRecordsTable';
 import DriftSection from './components/DriftSection';
 import EnumeratorSection from './components/EnumeratorSection';
+import MlAnomalyInfo from './components/MlAnomalyInfo';
 import ClusterAnalysisCard from './components/ClusterAnalysisCard';
 import LiveFeedSection from './components/LiveFeedSection';
 import AuditTrailSection from './components/AuditTrailSection';
@@ -182,9 +183,14 @@ function App() {
 
   const handleFileUpload = async (file) => {
     if (!file) return;
+    const description = window.prompt(`Upload "${file.filename}"\nEnter optional dataset description (leave blank to auto-detect):`);
+    if (description === null) return; // User cancelled upload
     setIsUploading(true);
     const formData = new FormData();
     formData.append('file', file);
+    if (description.trim()) {
+      formData.append('description', description.trim());
+    }
     try {
       const res = await datasetApi.upload(formData);
       const newId = res.data.dataset_id;
@@ -263,10 +269,6 @@ function App() {
               <>
                 <KpiCards summary={result} />
                 <ChartsSection summary={result} />
-                <ClusterAnalysisCard summary={result} datasetId={activeDatasetId} />
-                <FlaggedRecordsTable summary={result} datasetId={activeDatasetId} />
-                <EnumeratorSection summary={result} datasetId={activeDatasetId} />
-                <DriftSection summary={result} />
               </>
             )}
           </div>
@@ -302,9 +304,9 @@ function App() {
 
         {activeTab === 'anomalies' && activeDatasetId && (
           <div className="space-y-6">
-            <KpiCards summary={result} />
-            <ChartsSection summary={result} />
-            <FlaggedRecordsTable summary={result} datasetId={activeDatasetId} />
+            <MlAnomalyInfo summary={result} />
+            <DriftSection summary={result} />
+            <EnumeratorSection summary={result} datasetId={activeDatasetId} />
           </div>
         )}
 

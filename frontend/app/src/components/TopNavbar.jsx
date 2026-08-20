@@ -1,4 +1,4 @@
-import React, { useRef } from 'react';
+import React, { useRef, useState } from 'react';
 import {
   LayoutDashboard, PieChart, Database, AlertTriangle, Cpu,
   Brain, Network, FileText, BookOpen, Award, GitBranch,
@@ -25,6 +25,32 @@ export default function TopNavbar({
   isValidating
 }) {
   const fileInputRef = useRef(null);
+  const [activeDropdown, setActiveDropdown] = useState(null);
+  const timeoutRef = useRef(null);
+
+  const handleMouseEnter = (id) => {
+    if (timeoutRef.current) {
+      clearTimeout(timeoutRef.current);
+    }
+    setActiveDropdown(id);
+  };
+
+  const handleMouseLeave = () => {
+    if (timeoutRef.current) {
+      clearTimeout(timeoutRef.current);
+    }
+    timeoutRef.current = setTimeout(() => {
+      setActiveDropdown(null);
+    }, 200);
+  };
+
+  React.useEffect(() => {
+    return () => {
+      if (timeoutRef.current) {
+        clearTimeout(timeoutRef.current);
+      }
+    };
+  }, []);
 
   const handleFileChange = (e) => {
     if (e.target.files && e.target.files[0]) {
@@ -32,22 +58,83 @@ export default function TopNavbar({
     }
   };
 
-  const navTabs = [
-    { id: 'dashboard', label: 'Dashboard', icon: LayoutDashboard },
-    { id: 'analytics', label: 'Dataset Analytics', icon: PieChart },
-    { id: 'datasets', label: 'Datasets', icon: Database },
-    { id: 'validation', label: 'Validation', icon: AlertTriangle },
-    { id: 'anomalies', label: 'Anomalies', icon: Cpu },
-    { id: 'explainai', label: 'Explainable AI', icon: Brain },
-    { id: 'clusters', label: 'Clusters', icon: Network },
-    { id: 'reports', label: 'Reports', icon: FileText },
-    { id: 'rules', label: 'Rules', icon: BookOpen },
-    { id: 'evaluation', label: 'Evaluation', icon: Award },
-    { id: 'roadmap', label: 'Roadmap', icon: GitBranch },
-    { id: 'audit', label: 'Audit Logs', icon: ClipboardList },
-    { id: 'overview', label: 'Dataset Overview', icon: BookOpen },
-    { id: 'settings', label: 'Settings', icon: Settings },
+  const navGroups = [
+    {
+      type: 'link',
+      id: 'dashboard',
+      label: 'Dashboard',
+      icon: LayoutDashboard
+    },
+    {
+      type: 'dropdown',
+      id: 'analytics-group',
+      label: 'Dataset Analytics',
+      icon: PieChart,
+      primaryId: 'analytics',
+      items: [
+        { id: 'analytics', label: 'Dataset Analytics', icon: PieChart },
+        { id: 'overview', label: 'Dataset Overview', icon: BookOpen }
+      ]
+    },
+    {
+      type: 'dropdown',
+      id: 'validation-group',
+      label: 'Validation',
+      icon: AlertTriangle,
+      primaryId: 'validation',
+      items: [
+        { id: 'validation', label: 'Validation', icon: AlertTriangle },
+        { id: 'anomalies', label: 'Anomalies', icon: Cpu },
+        { id: 'clusters', label: 'Clusters', icon: Network },
+        { id: 'explainai', label: 'Explainable AI', icon: Brain }
+      ]
+    },
+    {
+      type: 'link',
+      id: 'datasets',
+      label: 'Datasets',
+      icon: Database
+    },
+    {
+      type: 'dropdown',
+      id: 'reports-group',
+      label: 'Reports',
+      icon: FileText,
+      primaryId: 'reports',
+      align: 'right',
+      items: [
+        { id: 'reports', label: 'Reports', icon: FileText },
+        { id: 'audit', label: 'Audit Logs', icon: ClipboardList }
+      ]
+    },
+    {
+      type: 'dropdown',
+      id: 'system-group',
+      label: 'System',
+      icon: Layers,
+      primaryId: 'rules',
+      align: 'right',
+      items: [
+        { id: 'rules', label: 'Rules', icon: BookOpen },
+        { id: 'evaluation', label: 'Evaluation', icon: Award },
+        { id: 'roadmap', label: 'Roadmap', icon: GitBranch }
+      ]
+    },
+    {
+      type: 'link',
+      id: 'settings',
+      label: 'Settings',
+      icon: Settings
+    }
   ];
+
+  const isGroupActive = (group) => {
+    if (group.type === 'link') {
+      return activeTab === group.id;
+    }
+    return group.items.some(item => item.id === activeTab);
+  };
+
 
   const activeDataset = datasets?.find((d) => d.dataset_id === activeDatasetId);
 
@@ -81,23 +168,43 @@ export default function TopNavbar({
         {/* Right: Dataset Selector, Validation, Upload, Notifications, User */}
         <div className="flex items-center flex-wrap gap-2.5">
           {/* Active Dataset Dropdown */}
-          {datasets && datasets.length > 0 && (
-            <div className="relative flex items-center">
-              <Layers className="w-3.5 h-3.5 text-blue-600 absolute left-3 pointer-events-none" />
-              <select
-                value={activeDatasetId || ''}
-                onChange={(e) => onSetActiveDataset(e.target.value)}
-                className="pl-8 pr-7 py-2 bg-blue-50 hover:bg-blue-100/70 border-2 border-slate-900 text-xs font-black rounded-xl text-slate-900 focus:outline-none cursor-pointer shadow-sketch-sm max-w-[210px] truncate transition-colors"
-                title="Switch Active Survey Dataset"
-              >
-                {datasets.filter((d) => !d.is_historical).map((d) => (
-                  <option key={d.dataset_id} value={d.dataset_id}>
-                    {d.filename} ({(d.total_records || 0).toLocaleString()} rec)
-                  </option>
-                ))}
-              </select>
-            </div>
-          )}
+          {datasets && datasets.length > 0 && (() => {
+            const uniqueDatasets = [];
+            const seenIds = new Set();
+            for (const d of datasets) {
+              if (d && !seenIds.has(d.dataset_id)) {
+                seenIds.add(d.dataset_id);
+                uniqueDatasets.push(d);
+              }
+            }
+            return (
+              <div className="flex flex-col items-start gap-1">
+                <div className="relative flex items-center">
+                  <Layers className="w-3.5 h-3.5 text-blue-600 absolute left-3 pointer-events-none" />
+                  <select
+                    value={activeDatasetId || ''}
+                    onChange={(e) => onSetActiveDataset(e.target.value)}
+                    className="pl-8 pr-7 py-2 bg-blue-50 hover:bg-blue-100/70 border-2 border-slate-900 text-xs font-black rounded-xl text-slate-900 focus:outline-none cursor-pointer shadow-sketch-sm max-w-[210px] truncate transition-colors"
+                    title="Switch Active Survey Dataset"
+                  >
+                    {uniqueDatasets.filter((d) => !d.is_historical).map((d) => {
+                      const isActive = d.dataset_id === activeDatasetId;
+                      return (
+                        <option key={d.dataset_id} value={d.dataset_id}>
+                          {isActive ? '✓ ' : ''}{d.filename} ({(d.total_records || 0).toLocaleString()} rec)
+                        </option>
+                      );
+                    })}
+                  </select>
+                </div>
+                {activeDataset?.description && (
+                  <span className="text-[10px] font-semibold text-slate-500 max-w-[210px] truncate leading-none px-1" title={activeDataset.description}>
+                    {activeDataset.description}
+                  </span>
+                )}
+              </div>
+            );
+          })()}
 
           {/* Quick Upload Button */}
           <input
@@ -167,29 +274,88 @@ export default function TopNavbar({
       </div>
 
       {/* ─── Bottom Tier: Horizontal Navigation Tabs Bar ─────────── */}
-      <nav className="max-w-[1700px] mx-auto px-6 overflow-x-auto scrollbar-none">
-        <div className="flex items-center gap-1.5 py-2.5 min-w-max">
-          {navTabs.map((tab) => {
-            const Icon = tab.icon;
-            const isActive = activeTab === tab.id;
+      <nav className="max-w-[1200px] mx-auto px-6 overflow-visible w-full">
+        <div className="flex items-center justify-between py-2.5 w-full">
+          {navGroups.map((group) => {
+            if (group.type === 'link') {
+              const Icon = group.icon;
+              const isActive = activeTab === group.id;
+              return (
+                <button
+                  key={group.id}
+                  onClick={() => setActiveTab(group.id)}
+                  className={`flex items-center gap-2 px-3.5 py-2 rounded-xl text-xs font-black transition-all cursor-pointer whitespace-nowrap ${
+                    isActive
+                      ? 'bg-blue-600 text-white border-2 border-slate-900 shadow-sketch-sm translate-y-[-1px]'
+                      : 'text-slate-700 hover:text-slate-900 hover:bg-slate-100 border border-transparent'
+                  }`}
+                >
+                  <Icon className={`w-4 h-4 ${isActive ? 'text-white' : 'text-slate-500'}`} />
+                  <span>{group.label}</span>
+                </button>
+              );
+            }
+
+            const Icon = group.icon;
+            const isActive = isGroupActive(group);
+            const isDropdownOpen = activeDropdown === group.id;
 
             return (
-              <button
-                key={tab.id}
-                onClick={() => setActiveTab(tab.id)}
-                className={`flex items-center gap-2 px-3.5 py-2 rounded-xl text-xs font-black transition-all cursor-pointer whitespace-nowrap ${
-                  isActive
-                    ? 'bg-blue-600 text-white border-2 border-slate-900 shadow-sketch-sm translate-y-[-1px]'
-                    : 'text-slate-700 hover:text-slate-900 hover:bg-slate-100 border border-transparent'
-                }`}
+              <div
+                key={group.id}
+                className="relative"
+                onMouseEnter={() => handleMouseEnter(group.id)}
+                onMouseLeave={handleMouseLeave}
               >
-                <Icon className={`w-4 h-4 ${isActive ? 'text-white' : 'text-slate-500'}`} />
-                <span>{tab.label}</span>
-              </button>
+                <button
+                  onClick={() => {
+                    setActiveTab(group.primaryId);
+                    setActiveDropdown(null);
+                  }}
+                  className={`flex items-center gap-1.5 px-3.5 py-2 rounded-xl text-xs font-black transition-all cursor-pointer whitespace-nowrap ${
+                    isActive
+                      ? 'bg-blue-600 text-white border-2 border-slate-900 shadow-sketch-sm translate-y-[-1px]'
+                      : 'text-slate-700 hover:text-slate-900 hover:bg-slate-100 border border-transparent'
+                  }`}
+                >
+                  <Icon className={`w-4 h-4 ${isActive ? 'text-white' : 'text-slate-500'}`} />
+                  <span>{group.label}</span>
+                  <ChevronDown className={`w-3.5 h-3.5 transition-transform ${isDropdownOpen ? 'rotate-180 text-white' : (isActive ? 'text-white' : 'text-slate-400')}`} />
+                </button>
+
+                {isDropdownOpen && (
+                  <div className={`absolute ${group.align === 'right' ? 'right-0' : 'left-0'} top-full pt-1.5 z-50 animate-in fade-in slide-in-from-top-1 duration-150`}>
+                    <div className="bg-white border-2 border-slate-900 rounded-xl p-1.5 shadow-sketch min-w-[180px]">
+                      {group.items.map((subItem) => {
+                        const SubIcon = subItem.icon;
+                        const isSubActive = activeTab === subItem.id;
+                        return (
+                          <button
+                            key={subItem.id}
+                            onClick={() => {
+                              setActiveTab(subItem.id);
+                              setActiveDropdown(null);
+                            }}
+                            className={`w-full flex items-center gap-2 px-3 py-2 rounded-lg text-sm font-black text-left transition-all cursor-pointer ${
+                              isSubActive
+                                ? 'bg-blue-50 text-blue-800'
+                                : 'text-slate-700 hover:bg-slate-50 hover:text-slate-900'
+                            }`}
+                          >
+                            <SubIcon className={`w-3.5 h-3.5 ${isSubActive ? 'text-blue-600' : 'text-slate-400'}`} />
+                            <span>{subItem.label}</span>
+                          </button>
+                        );
+                      })}
+                    </div>
+                  </div>
+                )}
+              </div>
             );
           })}
         </div>
       </nav>
+
     </header>
   );
 }

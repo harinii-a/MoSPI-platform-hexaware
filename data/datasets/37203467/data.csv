@@ -1,0 +1,91 @@
+record_id,state_name,district_code,enumerator_id,respondent_age,emp_status,weekly_hours,monthly_income
+101,Karnataka,Bengaluru,E04,59,Employed,51,47119
+102,Tamil Nadu,Chennai,E05,21,Not in labour force,0,7035
+103,Tamil Nadu,Erode,E04,44,Employed,27,48113
+104,Karnataka,Bengaluru,E05,25,Not in labour force,0,20664
+105,Kerala,Ernakulam,E05,55,Employed,32,15052
+106,Kerala,Ernakulam,E03,44,Employed,28,49415
+107,Karnataka,Bengaluru,E01,55,Employed,31,36405
+108,Tamil Nadu,Erode,E05,21,Employed,40,56590
+109,Kerala,Kozhikode,E03,47,Employed,39,35696
+110,Karnataka,Bengaluru,E02,62,Unemployed,0,2682
+111,Kerala,Kozhikode,E05,49,Not in labour force,0,23902
+112,Karnataka,Mysuru,E05,22,Employed,38,22810
+113,Karnataka,Bengaluru,E04,44,Employed,46,17086
+114,Kerala,Kozhikode,E03,62,Employed,40,50004
+115,Karnataka,Bengaluru,E01,35,Employed,46,16259
+116,Tamil Nadu,Chennai,E05,61,Not in labour force,0,9325
+117,Kerala,Kozhikode,E03,19,Not in labour force,0,11647
+118,Tamil Nadu,Erode,E04,21,Employed,34,20476
+119,Kerala,Ernakulam,E04,43,Not in labour force,0,16269
+120,Tamil Nadu,Salem,E04,43,Employed,53,20973
+121,Karnataka,Mysuru,E04,40,Employed,37,74765
+122,Tamil Nadu,Salem,E01,29,Employed,46,27291
+123,Tamil Nadu,Madurai,E05,29,Employed,25,21547
+124,Karnataka,Mysuru,E05,54,Employed,29,57252
+125,Kerala,Ernakulam,E04,61,Unemployed,0,12857
+126,Karnataka,Mysuru,E04,24,Employed,37,16079
+127,Tamil Nadu,Erode,E02,46,Employed,35,51369
+128,Tamil Nadu,Erode,E01,54,Employed,28,74190
+129,Karnataka,Bengaluru,E01,31,Employed,29,53576
+130,Karnataka,Mysuru,E05,41,Employed,28,67635
+131,Karnataka,Mysuru,E04,48,Employed,29,18696
+132,Kerala,Kozhikode,E03,48,Not in labour force,0,5290
+133,Kerala,Ernakulam,E02,51,Employed,47,47597
+134,Tamil Nadu,Chennai,E01,62,Not in labour force,0,16986
+135,Karnataka,Bengaluru,E03,32,Employed,49,44944
+136,Karnataka,Bengaluru,E05,30,Unemployed,0,13129
+137,Kerala,Ernakulam,E02,51,Employed,48,13899
+138,Tamil Nadu,Chennai,E04,34,Employed,44,74686
+139,Karnataka,Mysuru,E03,41,Employed,28,26866
+140,Karnataka,Bengaluru,E03,31,Employed,53,51994
+141,Tamil Nadu,Madurai,E03,59,Employed,46,19858
+142,Karnataka,Bengaluru,E04,29,Employed,45,33791
+143,Tamil Nadu,Madurai,E04,43,Unemployed,0,2782
+144,Kerala,Ernakulam,E02,26,Employed,43,71300
+145,Karnataka,Bengaluru,E05,56,Not in labour force,0,21537
+146,Karnataka,Bengaluru,E05,53,Employed,25,64386
+147,Kerala,Ernakulam,E05,65,Not in labour force,0,14215
+148,Tamil Nadu,Salem,E01,34,Employed,41,27763
+149,Kerala,Kozhikode,E03,52,Employed,29,15991
+150,Kerala,Kozhikode,E04,60,Employed,53,45866
+151,Karnataka,Bengaluru,E05,27,Employed,25,69200
+152,Karnataka,Bengaluru,E05,18,Unemployed,0,4908
+153,Tamil Nadu,Salem,E04,57,Unemployed,0,18234
+154,Tamil Nadu,Chennai,E05,51,Employed,50,62888
+155,Tamil Nadu,Erode,E02,30,Employed,49,18405
+156,Kerala,Kozhikode,E05,19,Unemployed,0,2076
+157,Karnataka,Mysuru,E05,50,Employed,31,57398
+158,Karnataka,Mysuru,E05,52,Unemployed,0,16638
+159,Tamil Nadu,Chennai,E05,30,Not in labour force,0,4493
+160,Karnataka,Bengaluru,E04,46,Employed,46,27770
+161,Karnataka,Bengaluru,E02,60,Employed,28,70787
+162,Tamil Nadu,Chennai,E02,34,Not in labour force,0,15326
+163,Tamil Nadu,Erode,E04,49,Employed,46,66555
+164,Tamil Nadu,Salem,E04,50,Employed,38,24828
+165,Karnataka,Mysuru,E01,64,Employed,35,48310
+166,Karnataka,Mysuru,E01,42,Employed,44,31362
+167,Kerala,Ernakulam,E01,32,Not in labour force,0,3433
+168,Tamil Nadu,Chennai,E03,20,Not in labour force,0,5949
+169,Karnataka,Bengaluru,E04,61,Unemployed,0,8474
+170,Karnataka,Bengaluru,E05,50,Employed,47,33433
+171,Tamil Nadu,Chennai,E01,62,Employed,53,16745
+172,Karnataka,Bengaluru,E01,34,Employed,52,26575
+173,Tamil Nadu,Chennai,E01,47,Employed,42,39378
+174,Karnataka,Bengaluru,E01,51,Unemployed,0,3586
+175,Tamil Nadu,Chennai,E01,29,Employed,34,53200
+176,Karnataka,Bengaluru,E03,46,Employed,30,29728
+177,Karnataka,Bengaluru,E03,20,Employed,48,45138
+178,Kerala,Ernakulam,E05,48,Employed,39,18965
+179,Kerala,Kozhikode,E04,52,Not in labour force,0,12880
+180,Kerala,Kozhikode,E02,32,Employed,51,69798
+181,Tamil Nadu,Erode,E03,31,Employed,110,28000
+182,Tamil Nadu,Salem,E02,42,Employed,45,250000
+183,Karnataka,Mysuru,E04,27,Unemployed,70,18000
+184,Kerala,Ernakulam,E01,54,Not in labour force,65,30000
+185,Tamil Nadu,Chennai,E05,18,Employed,40,180000
+186,Tamil Nadu,Salem,E05,35,Employed,40,30000
+187,Tamil Nadu,Salem,E05,35,Employed,40,30000
+188,Tamil Nadu,Salem,E05,35,Employed,40,30000
+189,Tamil Nadu,Salem,E05,35,Employed,40,30000
+190,Tamil Nadu,Salem,E05,35,Employed,40,30000

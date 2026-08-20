@@ -8,6 +8,18 @@ export default function EnumeratorSection({ summary }) {
   const enumerators = enumData.enumerators || [];
   const enumColumn = enumData.enumerator_column || 'Enumerator';
 
+  const getCardStyle = (sigma) => {
+    const s = parseFloat(sigma) || 0;
+    if (s >= 3.0) {
+      return 'bg-[#FEF2F2] hover:bg-[#FEE2E2] border-l-red-500 border-l-8';
+    } else if (s >= 2.5) {
+      return 'bg-[#FFFBEB] hover:bg-[#FEF3C7] border-l-amber-500 border-l-8';
+    } else {
+      return 'bg-[#F0FDF4] hover:bg-[#DCFCE7] border-l-emerald-500 border-l-8';
+    }
+  };
+
+
   return (
     <div className="bg-white rounded-3xl p-6 border-2 border-slate-900 shadow-sketch mb-8">
       <div className="flex items-center justify-between mb-4">
@@ -38,7 +50,10 @@ export default function EnumeratorSection({ summary }) {
         <div className="space-y-4">
           <div className="grid grid-cols-1 md:grid-cols-2 gap-5">
             {alerts.map((item, idx) => (
-              <div key={idx} className="bg-purple-50/70 border-2 border-slate-900 rounded-2xl p-5 flex flex-col justify-between shadow-sketch-sm">
+              <div
+                key={idx}
+                className={`${getCardStyle(item.deviation_sigma)} border-2 border-slate-900 rounded-2xl p-5 flex flex-col justify-between transition-all shadow-sketch-sm`}
+              >
                 <div className="flex items-start justify-between gap-3 mb-3">
                   <div className="flex items-center gap-3">
                     <div className="w-11 h-11 rounded-2xl bg-purple-600 text-white border-2 border-slate-900 flex items-center justify-center font-black text-sm shadow-sketch-sm">

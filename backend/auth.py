@@ -248,7 +248,7 @@ def decode_token(token: str) -> Optional[dict]:
 
 def get_current_user_from_token(authorization: Optional[str] = None, user_store: 'UserStore' = None) -> dict:
     """Extract current user from authorization header."""
-    if not authorization:
+    if not authorization or not isinstance(authorization, str):
         return {"username": "guest", "role": "VIEWER", "name": "Guest User", "department": "Public"}
 
     # Strip "Bearer " prefix if present
