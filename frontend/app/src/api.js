@@ -123,6 +123,6 @@ export const downloadReport = async (datasetId, format = 'pdf') => {
   }
 };
 
-export const WS_URL = 'ws://127.0.0.1:8000/ws/live';
+export const WS_URL = 'wss://mospi-platform-hexaware.onrender.com/ws/live';
 
 export default api;
